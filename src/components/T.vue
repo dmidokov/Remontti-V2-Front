@@ -15,7 +15,7 @@ const props = defineProps({
 
 const { t } = useTranslation()
 
-const translatedText = computed(() => t(props.k))
+const translatedText = computed(() => t(props.k, ''))
 </script>
 
 <template>

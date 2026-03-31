@@ -2,12 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { useTranslation } from '../composables/useTranslation'
 
-const { loadTranslations, t, isLoading: isTranslationsLoading } = useTranslation()
+const { loadTranslations, t, isLoading, isLoaded } = useTranslation()
 
 const email = ref('')
 const password = ref('')
 const error = ref('')
-const isLoading = ref(false)
+const isSubmitting = ref(false)
 
 onMounted(() => {
   loadTranslations('login')
@@ -17,19 +17,19 @@ const handleSubmit = async () => {
   error.value = ''
   
   if (!email.value || !password.value) {
-    error.value = t('login.error.required')
+    error.value = t('login.error.required', 'Please fill in all fields')
     return
   }
   
   if (!email.value.includes('@')) {
-    error.value = t('login.error.invalid_email')
+    error.value = t('login.error.invalid_email', 'Please enter a valid email')
     return
   }
   
-  isLoading.value = true
+  isSubmitting.value = true
   
   setTimeout(() => {
-    isLoading.value = false
+    isSubmitting.value = false
     console.log('Login attempt:', { email: email.value, password: password.value })
   }, 1000)
 }
@@ -37,7 +37,11 @@ const handleSubmit = async () => {
 
 <template>
   <div class="login-page">
-    <div class="login-content">
+    <div v-if="!isLoaded" class="loading-container">
+      <div class="loading-spinner"></div>
+    </div>
+    
+    <div v-else class="login-content">
       <div class="login-header">
         <h1><T k="login.title" /></h1>
         <p><T k="login.subtitle" /></p>
@@ -50,8 +54,8 @@ const handleSubmit = async () => {
             id="email"
             v-model="email"
             type="email"
-            :placeholder="t('login.email.placeholder')"
-            :disabled="isLoading || isTranslationsLoading"
+            :placeholder="t('login.email.placeholder', 'name@company.com')"
+            :disabled="isSubmitting"
           />
         </div>
         
@@ -61,14 +65,14 @@ const handleSubmit = async () => {
             id="password"
             v-model="password"
             type="password"
-            :placeholder="t('login.password.placeholder')"
-            :disabled="isLoading || isTranslationsLoading"
+            :placeholder="t('login.password.placeholder', 'Enter your password')"
+            :disabled="isSubmitting"
           />
         </div>
         
         <div class="form-options">
           <label class="checkbox-label">
-            <input type="checkbox" :disabled="isLoading || isTranslationsLoading" />
+            <input type="checkbox" :disabled="isSubmitting" />
             <span><T k="login.remember_me" /></span>
           </label>
           <a href="#" class="forgot-link"><T k="login.forgot_password" /></a>
@@ -76,9 +80,9 @@ const handleSubmit = async () => {
         
         <div v-if="error" class="error-message">{{ error }}</div>
         
-        <button type="submit" class="login-button" :disabled="isLoading || isTranslationsLoading">
-          <span v-if="isLoading" class="spinner"></span>
-          <span v-if="isLoading"><T k="login.signing_in" /></span>
+        <button type="submit" class="login-button" :disabled="isSubmitting">
+          <span v-if="isSubmitting" class="spinner"></span>
+          <span v-if="isSubmitting"><T k="login.signing_in" /></span>
           <span v-else><T k="login.sign_in" /></span>
         </button>
       </form>
@@ -102,6 +106,29 @@ const handleSubmit = async () => {
   justify-content: center;
   background: #f8f9fa;
   overflow-x: hidden;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .login-content {
@@ -243,12 +270,6 @@ const handleSubmit = async () => {
   border-top-color: white;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .login-footer {

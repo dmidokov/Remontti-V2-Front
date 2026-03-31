@@ -22,8 +22,8 @@ export function useTranslation() {
     }
   }
 
-  const t = (key) => {
-    return translationsStore.value[key] || key
+  const t = (key, defaultValue = '') => {
+    return translationsStore.value[key] || defaultValue
   }
 
   return {
