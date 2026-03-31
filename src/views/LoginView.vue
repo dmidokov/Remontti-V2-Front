@@ -21,7 +21,6 @@ const handleSubmit = async () => {
   
   isLoading.value = true
   
-  // Simulate API call
   setTimeout(() => {
     isLoading.value = false
     console.log('Login attempt:', { email: email.value, password: password.value })
@@ -31,81 +30,53 @@ const handleSubmit = async () => {
 
 <template>
   <div class="login-page">
-    <div class="login-sidebar">
-      <div class="sidebar-content">
+    <div class="login-content">
+      <div class="login-header">
         <h1>CRM System</h1>
-        <p>Welcome back! Please sign in to continue managing your projects and team.</p>
-        
-        <div class="features">
-          <div class="feature-item">
-            <div class="feature-icon">📊</div>
-            <span>Project Management</span>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon">👥</div>
-            <span>Team Collaboration</span>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon">📈</div>
-            <span>Analytics & Reports</span>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon">⚡</div>
-            <span>Fast & Reliable</span>
-          </div>
-        </div>
+        <p>Enter your credentials to access your account</p>
       </div>
-    </div>
-    
-    <div class="login-main">
-      <div class="login-wrapper">
-        <div class="login-header">
-          <h2>Sign In</h2>
-          <p>Enter your credentials to access your account</p>
+      
+      <form @submit.prevent="handleSubmit" class="login-form">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input
+            id="email"
+            v-model="email"
+            type="email"
+            placeholder="name@company.com"
+            :disabled="isLoading"
+          />
         </div>
         
-        <form @submit.prevent="handleSubmit" class="login-form">
-          <div class="form-group">
-            <label for="email">Email Address</label>
-            <input
-              id="email"
-              v-model="email"
-              type="email"
-              placeholder="name@company.com"
-              :disabled="isLoading"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="password">Password</label>
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              placeholder="Enter your password"
-              :disabled="isLoading"
-            />
-          </div>
-          
-          <div class="form-options">
-            <label class="checkbox-label">
-              <input type="checkbox" :disabled="isLoading" />
-              <span>Remember me</span>
-            </label>
-            <a href="#" class="forgot-link">Forgot password?</a>
-          </div>
-          
-          <div v-if="error" class="error-message">{{ error }}</div>
-          
-          <button type="submit" class="login-button" :disabled="isLoading">
-            <span v-if="isLoading" class="spinner"></span>
-            {{ isLoading ? 'Signing in...' : 'Sign In' }}
-          </button>
-        </form>
-        
-        <div class="login-footer">
-          <p>Don't have an account? <a href="#">Contact administrator</a></p>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            placeholder="Enter your password"
+            :disabled="isLoading"
+          />
         </div>
+        
+        <div class="form-options">
+          <label class="checkbox-label">
+            <input type="checkbox" :disabled="isLoading" />
+            <span>Remember me</span>
+          </label>
+          <a href="#" class="forgot-link">Forgot password?</a>
+        </div>
+        
+        <div v-if="error" class="error-message">{{ error }}</div>
+        
+        <button type="submit" class="login-button" :disabled="isLoading">
+          <span v-if="isLoading" class="spinner"></span>
+          {{ isLoading ? 'Signing in...' : 'Sign In' }}
+        </button>
+      </form>
+      
+      <div class="login-footer">
+        <p>Don't have an account? <a href="#">Contact administrator</a></p>
       </div>
     </div>
   </div>
@@ -114,87 +85,31 @@ const handleSubmit = async () => {
 <style scoped>
 .login-page {
   min-height: 100vh;
-  display: flex;
   width: 100vw;
-  overflow-x: hidden;
-}
-
-.login-sidebar {
-  width: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem;
-}
-
-.sidebar-content {
-  max-width: 600px;
-  color: white;
-}
-
-.sidebar-content h1 {
-  font-size: 3.5rem;
-  font-weight: 700;
-  margin: 0 0 1.5rem 0;
-  letter-spacing: -1px;
-}
-
-.sidebar-content > p {
-  font-size: 1.25rem;
-  line-height: 1.6;
-  opacity: 0.9;
-  margin: 0 0 3rem 0;
-}
-
-.features {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-}
-
-.feature-icon {
-  font-size: 2rem;
-}
-
-.feature-item span {
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.login-main {
-  width: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #f8f9fa;
-  padding: 4rem;
+  overflow-x: hidden;
 }
 
-.login-wrapper {
+.login-content {
   width: 100%;
   max-width: 520px;
+  padding: 2rem;
 }
 
 .login-header {
+  text-align: center;
   margin-bottom: 3rem;
 }
 
-.login-header h2 {
+.login-header h1 {
   font-size: 2.5rem;
   font-weight: 700;
   color: #1a1a2e;
   margin: 0 0 0.75rem 0;
+  letter-spacing: -0.5px;
 }
 
 .login-header p {
