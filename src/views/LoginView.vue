@@ -1,21 +1,28 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useTranslation } from '../composables/useTranslation'
+
+const { loadTranslations, t, isLoading: isTranslationsLoading } = useTranslation()
 
 const email = ref('')
 const password = ref('')
 const error = ref('')
 const isLoading = ref(false)
 
+onMounted(() => {
+  loadTranslations('login')
+})
+
 const handleSubmit = async () => {
   error.value = ''
   
   if (!email.value || !password.value) {
-    error.value = 'Please fill in all fields'
+    error.value = t('login.error.required')
     return
   }
   
   if (!email.value.includes('@')) {
-    error.value = 'Please enter a valid email'
+    error.value = t('login.error.invalid_email')
     return
   }
   
@@ -32,51 +39,55 @@ const handleSubmit = async () => {
   <div class="login-page">
     <div class="login-content">
       <div class="login-header">
-        <h1>CRM System</h1>
-        <p>Enter your credentials to access your account</p>
+        <h1><T k="login.title" /></h1>
+        <p><T k="login.subtitle" /></p>
       </div>
       
       <form @submit.prevent="handleSubmit" class="login-form">
         <div class="form-group">
-          <label for="email">Email Address</label>
+          <label for="email"><T k="login.email.label" /></label>
           <input
             id="email"
             v-model="email"
             type="email"
-            placeholder="name@company.com"
-            :disabled="isLoading"
+            :placeholder="t('login.email.placeholder')"
+            :disabled="isLoading || isTranslationsLoading"
           />
         </div>
         
         <div class="form-group">
-          <label for="password">Password</label>
+          <label for="password"><T k="login.password.label" /></label>
           <input
             id="password"
             v-model="password"
             type="password"
-            placeholder="Enter your password"
-            :disabled="isLoading"
+            :placeholder="t('login.password.placeholder')"
+            :disabled="isLoading || isTranslationsLoading"
           />
         </div>
         
         <div class="form-options">
           <label class="checkbox-label">
-            <input type="checkbox" :disabled="isLoading" />
-            <span>Remember me</span>
+            <input type="checkbox" :disabled="isLoading || isTranslationsLoading" />
+            <span><T k="login.remember_me" /></span>
           </label>
-          <a href="#" class="forgot-link">Forgot password?</a>
+          <a href="#" class="forgot-link"><T k="login.forgot_password" /></a>
         </div>
         
         <div v-if="error" class="error-message">{{ error }}</div>
         
-        <button type="submit" class="login-button" :disabled="isLoading">
+        <button type="submit" class="login-button" :disabled="isLoading || isTranslationsLoading">
           <span v-if="isLoading" class="spinner"></span>
-          {{ isLoading ? 'Signing in...' : 'Sign In' }}
+          <span v-if="isLoading"><T k="login.signing_in" /></span>
+          <span v-else><T k="login.sign_in" /></span>
         </button>
       </form>
       
       <div class="login-footer">
-        <p>Don't have an account? <a href="#">Contact administrator</a></p>
+        <p>
+          <T k="login.no_account" />
+          <a href="#"><T k="login.contact_admin" /></a>
+        </p>
       </div>
     </div>
   </div>
