@@ -1,7 +1,7 @@
-// Mock translations data
+// Mock translations data (used as fallback)
 const mockTranslations = {
   login: {
-    'login.title': 'CRM System',
+    'login.title': 'Remontti V2',
     'login.subtitle': 'Enter your credentials to access your account',
     'login.email.label': 'Email Address',
     'login.email.placeholder': 'name@company.com',
@@ -19,6 +19,40 @@ const mockTranslations = {
   dashboard: {
     // Dashboard translations will be added later
   },
+}
+
+const STORAGE_PREFIX = 'translations_'
+
+function getFromStorage(page) {
+  try {
+    const key = `${STORAGE_PREFIX}${page}`
+    const data = localStorage.getItem(key)
+    if (data) {
+      const parsed = JSON.parse(data)
+      // Check if translations are not older than 24 hours
+      const age = Date.now() - parsed.timestamp
+      const maxAge = 24 * 60 * 60 * 1000 // 24 hours
+      if (age < maxAge) {
+        return parsed.translations
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to read translations from localStorage:', e)
+  }
+  return null
+}
+
+function saveToStorage(page, translations) {
+  try {
+    const key = `${STORAGE_PREFIX}${page}`
+    const data = {
+      translations,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(data))
+  } catch (e) {
+    console.warn('Failed to save translations to localStorage:', e)
+  }
 }
 
 // Simulate API delay
@@ -39,3 +73,5 @@ export async function fetchTranslations(page) {
   
   return translations
 }
+
+export { getFromStorage, saveToStorage }
