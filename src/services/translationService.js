@@ -1,10 +1,10 @@
 // Mock translations data (used as fallback)
 const mockTranslations = {
   login: {
-    'login.title': 'Remontti V2',
+    'login.title': 'Ремонтти Версия 2.0',
     'login.subtitle': 'Enter your credentials to access your account',
-    'login.email.label': 'Email Address',
-    'login.email.placeholder': 'name@company.com',
+    'login.login.label': 'Login',
+    'login.login.placeholder': 'john.doe',
     'login.password.label': 'Password',
     'login.password.placeholder': 'Enter your password',
     'login.remember_me': 'Remember me',
@@ -14,7 +14,7 @@ const mockTranslations = {
     'login.no_account': "Don't have an account?",
     'login.contact_admin': 'Contact administrator',
     'login.error.required': 'Please fill in all fields',
-    'login.error.invalid_email': 'Please enter a valid email',
+    'login.error.invalid_format': 'Please enter a valid login (format: string.string)',
   },
   dashboard: {
     // Dashboard translations will be added later

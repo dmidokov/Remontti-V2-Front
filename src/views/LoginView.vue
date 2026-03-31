@@ -21,8 +21,9 @@ const handleSubmit = async () => {
     return
   }
   
-  if (!email.value.includes('@')) {
-    error.value = t('login.error.invalid_email', 'Please enter a valid email')
+  const loginFormatRegex = /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/
+  if (!loginFormatRegex.test(email.value)) {
+    error.value = t('login.error.invalid_format', 'Please enter a valid login (format: string.string)')
     return
   }
   
@@ -49,12 +50,12 @@ const handleSubmit = async () => {
       
       <form @submit.prevent="handleSubmit" class="login-form">
         <div class="form-group">
-          <label for="email"><T k="login.email.label" /></label>
+          <label for="email"><T k="login.login.label" /></label>
           <input
             id="email"
             v-model="email"
-            type="email"
-            :placeholder="t('login.email.placeholder', 'name@company.com')"
+            type="text"
+            :placeholder="t('login.login.placeholder', 'john.doe')"
             :disabled="isSubmitting"
           />
         </div>
@@ -175,7 +176,8 @@ const handleSubmit = async () => {
 }
 
 .form-group input[type="email"],
-.form-group input[type="password"] {
+.form-group input[type="password"],
+.form-group input[type="text"] {
   padding: 1.125rem 1.25rem;
   border: 2px solid #e0e0e0;
   border-radius: 10px;
