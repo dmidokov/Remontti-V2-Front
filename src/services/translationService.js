@@ -15,9 +15,17 @@ const mockTranslations = {
     'login.contact_admin': 'Contact administrator',
     'login.error.required': 'Please fill in all fields',
     'login.error.invalid_format': 'Please enter a valid login (format: string.string)',
+    'login.error.invalid_credentials': 'Invalid login or password',
   },
   dashboard: {
-    // Dashboard translations will be added later
+    'dashboard.title': 'CRM System',
+    'dashboard.logout': 'Logout',
+    'dashboard.welcome': 'Welcome back!',
+    'dashboard.welcome_text': 'Here\'s what\'s happening with your projects today.',
+    'dashboard.projects': 'Projects',
+    'dashboard.team_members': 'Team Members',
+    'dashboard.completed': 'Completed',
+    'dashboard.in_progress': 'In Progress',
   },
 }
 

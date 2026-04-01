@@ -1,8 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useTranslation } from '../composables/useTranslation'
+import { login } from '../services/authService'
+import { useRouter } from 'vue-router'
 
 const { loadTranslations, t, isLoading, isLoaded } = useTranslation()
+const router = useRouter()
 
 const email = ref('')
 const password = ref('')
@@ -29,10 +32,15 @@ const handleSubmit = async () => {
   
   isSubmitting.value = true
   
-  setTimeout(() => {
-    isSubmitting.value = false
-    console.log('Login attempt:', { email: email.value, password: password.value })
-  }, 1000)
+  const result = await login(email.value, password.value)
+  
+  if (result.success) {
+    router.push('/dashboard')
+  } else {
+    error.value = t('login.error.invalid_credentials', result.error)
+  }
+  
+  isSubmitting.value = false
 }
 </script>
 
@@ -50,7 +58,6 @@ const handleSubmit = async () => {
       
       <form @submit.prevent="handleSubmit" class="login-form">
         <div class="form-group">
-          <label for="email"><T k="login.login.label" /></label>
           <input
             id="email"
             v-model="email"
@@ -61,7 +68,6 @@ const handleSubmit = async () => {
         </div>
         
         <div class="form-group">
-          <label for="password"><T k="login.password.label" /></label>
           <input
             id="password"
             v-model="password"
