@@ -29,6 +29,7 @@ export interface GetTranslationsRequest {
 export interface LoginResponse {
   success: boolean
   user?: UserAuth
+  token?: string
   error?: string
 }
 

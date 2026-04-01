@@ -12,6 +12,7 @@ const MOCK_USER: UserAuth = {
 const MOCK_PASSWORD = 'password'
 
 const STORAGE_KEY = 'auth_user'
+const TOKEN_KEY = 'auth_token'
 
 // Use mock mode (set to false to use real API)
 const USE_MOCK = true
@@ -23,45 +24,45 @@ function delay(ms: number): Promise<void> {
 export async function login(loginValue: string, passwordValue: string): Promise<LoginResponse> {
   if (USE_MOCK) {
     await delay(500)
-    
+
     if (loginValue === MOCK_USER.login && passwordValue === MOCK_PASSWORD) {
       const user = { ...MOCK_USER }
-      delete user.password
+      delete (user as any).password
       localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
       return { success: true, user }
     }
-    
-    return { 
-      success: false, 
-      error: 'Invalid login or password' 
+
+    return {
+      success: false,
+      error: 'Invalid login or password'
     }
   }
-  
+
   // Real API call
   try {
     const response = await apiClient.login({ login: loginValue, password: passwordValue })
-    
+
     if (response.success && response.user) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(response.user))
     }
-    
+
     return response
   } catch (error) {
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Login failed' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Login failed'
     }
   }
 }
 
 export function logout(): void {
+  localStorage.removeItem(STORAGE_KEY)
+  
   if (USE_MOCK) {
-    localStorage.removeItem(STORAGE_KEY)
     return
   }
-  
+
   apiClient.logout().catch(console.error)
-  localStorage.removeItem(STORAGE_KEY)
 }
 
 export function getCurrentUser(): UserAuth | null {
@@ -80,8 +81,13 @@ export function isAuthenticated(): boolean {
   return getCurrentUser() !== null
 }
 
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
 export interface LoginResponse {
   success: boolean
   user?: UserAuth
+  token?: string
   error?: string
 }

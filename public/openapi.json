@@ -169,6 +169,11 @@
           "user": {
             "$ref": "#/components/schemas/User"
           },
+          "token": {
+            "type": "string",
+            "description": "JWT токен для авторизации",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
           "error": {
             "type": "string",
             "example": "Invalid login or password"
