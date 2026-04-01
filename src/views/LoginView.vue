@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useTranslation } from '../composables/useTranslation'
 import { login } from '../services/authService'
@@ -172,13 +172,7 @@ const handleSubmit = async () => {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-}
-
-.form-group label {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #333;
+  gap: 0;
 }
 
 .form-group input[type="email"],

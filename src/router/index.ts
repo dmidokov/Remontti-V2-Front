@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../services/authService'
+import type { RouteRecordRaw } from 'vue-router'
 
-const routes = [
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Login',

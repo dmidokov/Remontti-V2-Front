@@ -1,0 +1,212 @@
+openapi: 3.0.3
+info:
+  title: CRM System API
+  description: API для системы управления CRM Ремонтти
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@remontti.com
+
+servers:
+  - url: /api
+    description: API server
+
+tags:
+  - name: Auth
+    description: Операции аутентификации
+  - name: Translations
+    description: Операции с переводами
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Войти в систему
+      description: Аутентификация пользователя по логину и паролю
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Неверный логин или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Выйти из системы
+      description: Завершение сессии пользователя
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешный выход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+
+  /translations/{page}:
+    get:
+      tags:
+        - Translations
+      summary: Получить переводы для страницы
+      description: Возвращает все переводы для указанной страницы
+      parameters:
+        - name: page
+          in: path
+          required: true
+          description: Название страницы (например, login, dashboard)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное получение переводов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationResponse'
+        '404':
+          description: Страница не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - login
+        - password
+      properties:
+        login:
+          type: string
+          description: Логин пользователя (формат: строка.строка)
+          example: t.test
+        password:
+          type: string
+          description: Пароль пользователя
+          example: password
+
+    LoginResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          example: true
+        user:
+          $ref: '#/components/schemas/User'
+        error:
+          type: string
+          example: Invalid login or password
+
+    LogoutResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    User:
+      type: object
+      required:
+        - login
+        - email
+        - name
+        - role
+      properties:
+        id:
+          type: integer
+          example: 1
+        login:
+          type: string
+          example: t.test
+        email:
+          type: string
+          format: email
+          example: t.test@company.com
+        name:
+          type: string
+          example: Test User
+        role:
+          type: string
+          enum: [admin, user, manager]
+          example: admin
+
+    TranslationResponse:
+      type: object
+      additionalProperties:
+        type: string
+      example:
+        login.title: CRM System
+        login.subtitle: Enter your credentials
+        login.sign_in: Sign In
+
+    Error:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+          example: 401
+        message:
+          type: string
+          example: Invalid login or password
+        code:
+          type: string
+          example: AUTH_FAILED
+
+    ValidationError:
+      type: object
+      required:
+        - status
+        - errors
+      properties:
+        status:
+          type: integer
+          example: 422
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: login
+              message:
+                type: string
+                example: Field is required
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

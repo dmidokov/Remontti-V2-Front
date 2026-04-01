@@ -1,5 +1,8 @@
+import apiClient from '../api/client'
+import type { TranslationResponse } from '../types/api'
+
 // Mock translations data (used as fallback)
-const mockTranslations = {
+const mockTranslations: Record<string, TranslationResponse> = {
   login: {
     'login.title': 'Ремонтти Версия 2.0',
     'login.subtitle': 'Enter your credentials to access your account',
@@ -31,7 +34,14 @@ const mockTranslations = {
 
 const STORAGE_PREFIX = 'translations_'
 
-function getFromStorage(page) {
+// Use mock mode (set to false to use real API)
+const USE_MOCK = true
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+export function getFromStorage(page: string): TranslationResponse | null {
   try {
     const key = `${STORAGE_PREFIX}${page}`
     const data = localStorage.getItem(key)
@@ -50,7 +60,7 @@ function getFromStorage(page) {
   return null
 }
 
-function saveToStorage(page, translations) {
+export function saveToStorage(page: string, translations: TranslationResponse): void {
   try {
     const key = `${STORAGE_PREFIX}${page}`
     const data = {
@@ -63,23 +73,33 @@ function saveToStorage(page, translations) {
   }
 }
 
-// Simulate API delay
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-
-export async function fetchTranslations(page) {
-  // In production, this will be a real API call:
-  // const response = await fetch(`/api/translations/${page}`)
-  // return await response.json()
-  
-  await delay(300) // Simulate network delay
-  
-  const translations = mockTranslations[page] || {}
-  
-  if (!translations) {
-    console.warn(`No translations found for page: ${page}`)
+export async function fetchTranslations(page: string): Promise<TranslationResponse> {
+  if (USE_MOCK) {
+    await delay(300) // Simulate network delay
+    
+    const translations = mockTranslations[page] || {}
+    
+    if (!translations) {
+      console.warn(`No translations found for page: ${page}`)
+    }
+    
+    return translations
   }
   
-  return translations
+  // Real API call
+  try {
+    const translations = await apiClient.getTranslations(page)
+    saveToStorage(page, translations)
+    return translations
+  } catch (error) {
+    console.error('Failed to fetch translations from API:', error)
+    
+    // Fallback to mock data
+    const cachedTranslations = getFromStorage(page)
+    if (cachedTranslations) {
+      return cachedTranslations
+    }
+    
+    return mockTranslations[page] || {}
+  }
 }
-
-export { getFromStorage, saveToStorage }

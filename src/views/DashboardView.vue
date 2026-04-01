@@ -1,12 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import { onMounted } from 'vue'
 import { useTranslation } from '../composables/useTranslation'
 import { getCurrentUser, logout } from '../services/authService'
 import { useRouter } from 'vue-router'
+import type { UserAuth } from '../types/api'
 
 const { loadTranslations, t } = useTranslation()
 const router = useRouter()
-const user = getCurrentUser()
+const user: UserAuth | null = getCurrentUser()
 
 onMounted(() => {
   loadTranslations('dashboard')

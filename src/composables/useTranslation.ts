@@ -1,12 +1,13 @@
 import { ref, readonly } from 'vue'
 import { fetchTranslations, getFromStorage, saveToStorage } from '../services/translationService'
+import type { TranslationResponse } from '../types/api'
 
-const translationsStore = ref({})
+const translationsStore = ref<TranslationResponse>({})
 const isLoading = ref(false)
 const isLoaded = ref(false)
 
 export function useTranslation() {
-  const loadTranslations = async (page) => {
+  const loadTranslations = async (page: string) => {
     // Check localStorage first
     const cachedTranslations = getFromStorage(page)
     
@@ -47,7 +48,7 @@ export function useTranslation() {
     }
   }
 
-  const t = (key, defaultValue = '') => {
+  const t = (key: string, defaultValue = ''): string => {
     return translationsStore.value[key] || defaultValue
   }
 
