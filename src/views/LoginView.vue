@@ -18,28 +18,29 @@ onMounted(() => {
 
 const handleSubmit = async () => {
   error.value = ''
-  
+
   if (!email.value || !password.value) {
     error.value = t('login.error.required', 'Please fill in all fields')
     return
   }
-  
+
   const loginFormatRegex = /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/
   if (!loginFormatRegex.test(email.value)) {
     error.value = t('login.error.invalid_format', 'Please enter a valid login (format: string.string)')
     return
   }
-  
+
   isSubmitting.value = true
-  
+
   const result = await login(email.value, password.value)
-  
-  if (result.success) {
-    router.push('/dashboard')
+
+  if (result.success && result.user) {
+    const startPage = result.user.startPage || '/dashboard'
+    router.push(startPage)
   } else {
     error.value = t('login.error.invalid_credentials', result.error)
   }
-  
+
   isSubmitting.value = false
 }
 </script>

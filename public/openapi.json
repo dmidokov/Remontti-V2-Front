@@ -215,6 +215,11 @@
             "type": "string",
             "enum": ["admin", "user", "manager", "employee"],
             "example": "admin"
+          },
+          "startPage": {
+            "type": "string",
+            "description": "Стартовая страница пользователя после входа",
+            "example": "/dashboard"
           }
         }
       },
