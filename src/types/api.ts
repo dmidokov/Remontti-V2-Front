@@ -4,7 +4,7 @@ export interface User {
   login: string
   email: string
   name: string
-  role: 'admin' | 'user' | 'manager'
+  role: 'admin' | 'user' | 'manager' | 'employee'
 }
 
 export interface UserAuth extends User {

@@ -1,13 +1,22 @@
 import apiClient from '../api/client'
 import type { UserAuth, LoginRequest, LoginResponse as ApiLoginResponse } from '../types/api'
 
-const MOCK_USER: UserAuth = {
-  login: 't.test',
-  password: undefined as never,
-  name: 'Test User',
-  email: 't.test@company.com',
-  role: 'admin',
-}
+const MOCK_USERS: UserAuth[] = [
+  {
+    login: 'remontti.admin',
+    password: undefined as never,
+    name: 'Admin User',
+    email: 'admin@remontti.com',
+    role: 'admin',
+  },
+  {
+    login: 'test.employee',
+    password: undefined as never,
+    name: 'Test Employee',
+    email: 'employee@remontti.com',
+    role: 'employee',
+  },
+]
 
 const MOCK_PASSWORD = 'password'
 
@@ -25,11 +34,12 @@ export async function login(loginValue: string, passwordValue: string): Promise<
   if (USE_MOCK) {
     await delay(500)
 
-    if (loginValue === MOCK_USER.login && passwordValue === MOCK_PASSWORD) {
-      const user = { ...MOCK_USER }
-      delete (user as any).password
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
-      return { success: true, user }
+    const user = MOCK_USERS.find(u => u.login === loginValue && passwordValue === MOCK_PASSWORD)
+
+    if (user) {
+      const { password: _, ...userWithoutPassword } = user as any
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(userWithoutPassword))
+      return { success: true, user: userWithoutPassword }
     }
 
     return {

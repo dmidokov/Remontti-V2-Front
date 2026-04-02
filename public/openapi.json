@@ -213,7 +213,7 @@
           },
           "role": {
             "type": "string",
-            "enum": ["admin", "user", "manager"],
+            "enum": ["admin", "user", "manager", "employee"],
             "example": "admin"
           }
         }
