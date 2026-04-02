@@ -23,6 +23,10 @@
     {
       "name": "Translations",
       "description": "Операции с переводами"
+    },
+    {
+      "name": "Branches",
+      "description": "Операции с филиалами"
     }
   ],
   "paths": {
@@ -99,35 +103,29 @@
         }
       }
     },
-    "/translations/{page}": {
+    "/company/branches/get": {
       "get": {
-        "tags": ["Translations"],
-        "summary": "Получить переводы для страницы",
-        "description": "Возвращает все переводы для указанной страницы",
-        "parameters": [
+        "tags": ["Branches"],
+        "summary": "Получить список филиалов",
+        "description": "Возвращает список доступных пользователю филиалов",
+        "security": [
           {
-            "name": "page",
-            "in": "path",
-            "required": true,
-            "description": "Название страницы (например, login, dashboard)",
-            "schema": {
-              "type": "string"
-            }
+            "bearerAuth": []
           }
         ],
         "responses": {
           "200": {
-            "description": "Успешное получение переводов",
+            "description": "Успешное получение списка филиалов",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TranslationResponse"
+                  "$ref": "#/components/schemas/GetBranchesResponse"
                 }
               }
             }
           },
-          "404": {
-            "description": "Страница не найдена",
+          "401": {
+            "description": "Неавторизованный запрос",
             "content": {
               "application/json": {
                 "schema": {
@@ -232,6 +230,52 @@
           "login.title": "CRM System",
           "login.subtitle": "Enter your credentials",
           "login.sign_in": "Sign In"
+        }
+      },
+      "GetBranchesResponse": {
+        "type": "object",
+        "required": ["success", "branches"],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Branch"
+            }
+          }
+        }
+      },
+      "Branch": {
+        "type": "object",
+        "required": ["id", "name", "code", "isActive"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "Название филиала",
+            "example": "Плаза"
+          },
+          "code": {
+            "type": "string",
+            "description": "Код филиала",
+            "example": "plaza"
+          },
+          "address": {
+            "type": "string",
+            "description": "Адрес филиала",
+            "example": "ТЦ Плаза, ул. Примерная 1"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Активен ли филиал",
+            "example": true
+          }
         }
       },
       "Error": {

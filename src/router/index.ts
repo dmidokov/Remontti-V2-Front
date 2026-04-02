@@ -9,6 +9,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/LoginView.vue'),
   },
   {
+    path: '/branches',
+    name: 'Branches',
+    component: () => import('../views/BranchesView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('../views/DashboardView.vue'),

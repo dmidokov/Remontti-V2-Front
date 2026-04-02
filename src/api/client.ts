@@ -4,6 +4,7 @@ import type {
   LogoutResponse,
   TranslationResponse,
   ApiError,
+  GetBranchesResponse,
 } from '../types/api'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -97,6 +98,11 @@ class ApiClient {
   // Translations endpoints
   async getTranslations(page: string): Promise<TranslationResponse> {
     return this.request<TranslationResponse>(`/translations/${page}`)
+  }
+
+  // Branch endpoints
+  async getBranches(): Promise<GetBranchesResponse> {
+    return this.request<GetBranchesResponse>('/company/branches/get')
   }
 }
 

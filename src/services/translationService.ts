@@ -30,6 +30,16 @@ const mockTranslations: Record<string, TranslationResponse> = {
     'dashboard.completed': 'Completed',
     'dashboard.in_progress': 'In Progress',
   },
+  branches: {
+    'branches.title': 'Выберите филиал',
+    'branches.subtitle': 'Где вы будете работать сегодня?',
+    'branches.status.active': 'Активен',
+    'branches.status.inactive': 'Не активен',
+    'branches.continue': 'Продолжить',
+    'branches.submitting': 'Загрузка...',
+    'branches.error.load_failed': 'Не удалось загрузить список филиалов',
+    'branches.error.select_branch': 'Пожалуйста, выберите филиал',
+  },
 }
 
 const STORAGE_PREFIX = 'translations_'
