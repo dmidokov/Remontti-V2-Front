@@ -20,6 +20,12 @@ const INITIAL_NAV_ITEMS: NavItem[] = [
   },
   {
     id: 3,
+    name: 'Users',
+    link: '/users',
+    iconUrl: '/icons/users.svg',
+  },
+  {
+    id: 4,
     name: 'Management',
     link: '/management',
     iconUrl: '/icons/management.svg',

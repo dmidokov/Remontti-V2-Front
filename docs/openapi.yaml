@@ -18,6 +18,8 @@ tags:
     description: Операции с переводами
   - name: Navigation
     description: Операции навигации
+  - name: Users
+    description: Управление пользователями
   - name: Company
     description: Операции компании (филиалы и т.д.)
 
@@ -116,6 +118,118 @@ paths:
                   $ref: '#/components/schemas/NavItem'
         '401':
           description: Неавторизованный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Получить список пользователей
+      description: Возвращает всех пользователей системы
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешное получение списка пользователей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Неавторизованный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Users
+      summary: Создать пользователя
+      description: Создаёт нового пользователя
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '409':
+          description: Пользователь с таким login уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{id}:
+    put:
+      tags:
+        - Users
+      summary: Обновить пользователя
+      description: Обновляет данные существующего пользователя
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Пользователь обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Users
+      summary: Удалить пользователя
+      description: Удаляет пользователя по ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Пользователь удалён
+        '404':
+          description: Пользователь не найден
           content:
             application/json:
               schema:
@@ -288,6 +402,59 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Branch'
+
+    CreateUserRequest:
+      type: object
+      required:
+        - login
+        - email
+        - name
+        - role
+      properties:
+        login:
+          type: string
+          example: john.doe
+        email:
+          type: string
+          format: email
+          example: john@company.com
+        name:
+          type: string
+          example: John Doe
+        role:
+          type: string
+          enum: [admin, user, manager, employee]
+          example: user
+        startPage:
+          type: string
+          example: /dashboard
+        avatarUrl:
+          type: string
+          example: /avatars/john.png
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        login:
+          type: string
+          example: john.doe
+        email:
+          type: string
+          format: email
+          example: john@company.com
+        name:
+          type: string
+          example: John Doe
+        role:
+          type: string
+          enum: [admin, user, manager, employee]
+          example: manager
+        startPage:
+          type: string
+          example: /dashboard
+        avatarUrl:
+          type: string
+          example: /avatars/john.png
 
     Error:
       type: object

@@ -11,6 +11,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true,
+    allowedHosts: ['control.remontti.site', 'work.remontti.site'],
     proxy: {
       '^/api/.*': {
         target: 'http://localhost:8080',
