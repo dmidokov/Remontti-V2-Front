@@ -9,19 +9,19 @@ const MOCK_NAV_ITEMS: NavItem[] = [
     id: 1,
     name: 'Dashboard',
     link: '/dashboard',
-    iconUrl: '/vite.svg',
+    iconUrl: '/icons/dashboard.svg',
   },
   {
     id: 2,
     name: 'Branches',
     link: '/branches',
-    iconUrl: '/vite.svg',
+    iconUrl: '/icons/branches.svg',
   },
   {
     id: 3,
     name: 'Management',
     link: '/management',
-    iconUrl: '/vite.svg',
+    iconUrl: '/icons/management.svg',
   },
 ]
 
