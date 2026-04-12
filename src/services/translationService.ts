@@ -40,6 +40,14 @@ const mockTranslations: Record<string, TranslationResponse> = {
     'branches.error.load_failed': 'Не удалось загрузить список филиалов',
     'branches.error.select_branch': 'Пожалуйста, выберите филиал',
   },
+  management: {
+    'management.users': 'Работники',
+    'management.users_desc':'Управление работниками. Создание/редактирование/удаление',
+    'management.branches': 'Филиалы',
+    'management.manage': 'Открыть',
+    'management.welcome':'Управление',
+    'management.description':'общие настройки / меню и описание будут редактироваться - эти надпи для теста ',
+  },
 }
 
 const STORAGE_PREFIX = 'translations_'

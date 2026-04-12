@@ -20,6 +20,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/DashboardView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/management',
+    name: 'Management',
+    component: () => import('../views/ManagementView.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

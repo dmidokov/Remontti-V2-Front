@@ -8,7 +8,7 @@ const MOCK_USERS: UserAuth[] = [
     name: 'Admin User',
     email: 'admin@remontti.com',
     role: 'admin',
-    startPage: '/dashboard',
+    startPage: '/management',
   },
   {
     login: 'test.employee',
