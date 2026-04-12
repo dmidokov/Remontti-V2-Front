@@ -16,6 +16,10 @@ tags:
     description: Операции аутентификации
   - name: Translations
     description: Операции с переводами
+  - name: Navigation
+    description: Операции навигации
+  - name: Company
+    description: Операции компании (филиалы и т.д.)
 
 paths:
   /auth/login:
@@ -93,6 +97,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /navigation/get:
+    get:
+      tags:
+        - Navigation
+      summary: Получить меню навигации
+      description: Возвращает список пунктов меню для текущего пользователя на основе его роли и прав доступа
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешное получение навигации
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NavItem'
+        '401':
+          description: Неавторизованный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /company/branches/get:
+    get:
+      tags:
+        - Company
+      summary: Получить список филиалов
+      description: Возвращает список всех филиалов компании
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Успешное получение списка филиалов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetBranchesResponse'
+        '401':
+          description: Неавторизованный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   schemas:
     LoginRequest:
@@ -156,8 +206,16 @@ components:
           example: Test User
         role:
           type: string
-          enum: [admin, user, manager]
+          enum: [admin, user, manager, employee]
           example: admin
+        startPage:
+          type: string
+          description: Стартовая страница пользователя
+          example: /dashboard
+        avatarUrl:
+          type: string
+          description: URL аватара пользователя
+          example: /avatars/user1.png
 
     TranslationResponse:
       type: object
@@ -167,6 +225,69 @@ components:
         login.title: CRM System
         login.subtitle: Enter your credentials
         login.sign_in: Sign In
+
+    NavItem:
+      type: object
+      required:
+        - id
+        - name
+        - link
+        - iconUrl
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор пункта меню
+          example: 1
+        name:
+          type: string
+          description: Название пункта меню
+          example: Dashboard
+        link:
+          type: string
+          description: Ссылка для перехода
+          example: /dashboard
+        iconUrl:
+          type: string
+          description: URL иконки для пункта меню
+          example: /icons/dashboard.svg
+
+    Branch:
+      type: object
+      required:
+        - id
+        - name
+        - code
+        - isActive
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Main Branch
+        code:
+          type: string
+          example: MAIN
+        address:
+          type: string
+          example: 123 Main St
+        isActive:
+          type: boolean
+          example: true
+
+    GetBranchesResponse:
+      type: object
+      required:
+        - success
+        - branches
+      properties:
+        success:
+          type: boolean
+          example: true
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Branch'
 
     Error:
       type: object

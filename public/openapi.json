@@ -25,6 +25,10 @@
       "description": "Операции с переводами"
     },
     {
+      "name": "Navigation",
+      "description": "Операции навигации"
+    },
+    {
       "name": "Branches",
       "description": "Операции с филиалами"
     }
@@ -132,6 +136,43 @@
           },
           "404": {
             "description": "Страница не найдена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/navigation/get": {
+      "get": {
+        "tags": ["Navigation"],
+        "summary": "Получить меню навигации",
+        "description": "Возвращает список пунктов меню для текущего пользователя на основе его роли и прав доступа",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешное получение навигации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NavItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизованный запрос",
             "content": {
               "application/json": {
                 "schema": {
@@ -280,6 +321,11 @@
             "type": "string",
             "description": "Стартовая страница пользователя после входа",
             "example": "/dashboard"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "description": "URL аватара пользователя",
+            "example": "/avatars/user1.png"
           }
         }
       },
@@ -298,6 +344,32 @@
           "login.password.label": "Пароль",
           "login.password.placeholder": "Введите пароль",
           "login.sign_in": "Войти"
+        }
+      },
+      "NavItem": {
+        "type": "object",
+        "required": ["id", "name", "link", "iconUrl"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Уникальный идентификатор пункта меню",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "Название пункта меню",
+            "example": "Dashboard"
+          },
+          "link": {
+            "type": "string",
+            "description": "Ссылка для перехода",
+            "example": "/dashboard"
+          },
+          "iconUrl": {
+            "type": "string",
+            "description": "URL иконки для пункта меню",
+            "example": "/icons/dashboard.svg"
+          }
         }
       },
       "GetBranchesResponse": {
