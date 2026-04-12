@@ -103,6 +103,46 @@
         }
       }
     },
+    "/translations/{page}": {
+      "get": {
+        "tags": ["Translations"],
+        "summary": "Получить переводы для страницы",
+        "description": "Возвращает все переводы для указанной страницы",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "path",
+            "required": true,
+            "description": "Название страницы (например, login, dashboard, branches)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешное получение переводов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Страница не найдена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/company/branches/get": {
       "get": {
         "tags": ["Branches"],
@@ -162,19 +202,41 @@
         "properties": {
           "success": {
             "type": "boolean",
+            "description": "Результат аутентификации",
             "example": true
           },
           "user": {
-            "$ref": "#/components/schemas/User"
+            "$ref": "#/components/schemas/User",
+            "description": "Данные пользователя (присутствует при успешной аутентификации)"
           },
           "token": {
             "type": "string",
-            "description": "JWT токен для авторизации",
+            "description": "JWT токен для авторизации (присутствует при успешной аутентификации)",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          }
+        },
+        "examples": {
+          "success": {
+            "summary": "Успешная аутентификация",
+            "value": {
+              "success": true,
+              "user": {
+                "id": 1,
+                "login": "remontti.admin",
+                "email": "admin@remontti.com",
+                "name": "Admin User",
+                "role": "admin",
+                "startPage": "/dashboard"
+              },
+              "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            }
           },
           "error": {
-            "type": "string",
-            "example": "Invalid login or password"
+            "summary": "Ошибка аутентификации",
+            "value": {
+              "success": false,
+              "error": "Invalid login or password"
+            }
           }
         }
       },
@@ -223,13 +285,19 @@
       },
       "TranslationResponse": {
         "type": "object",
+        "description": "Словарь переводов для указанной страницы",
         "additionalProperties": {
-          "type": "string"
+          "type": "string",
+          "description": "Текст перевода для ключа"
         },
         "example": {
-          "login.title": "CRM System",
-          "login.subtitle": "Enter your credentials",
-          "login.sign_in": "Sign In"
+          "login.title": "Ремонтти Версия 2.0",
+          "login.subtitle": "Введите свои учетные данные",
+          "login.login.label": "Логин",
+          "login.login.placeholder": "john.doe",
+          "login.password.label": "Пароль",
+          "login.password.placeholder": "Введите пароль",
+          "login.sign_in": "Войти"
         }
       },
       "GetBranchesResponse": {
