@@ -1,10 +1,11 @@
 import apiClient from '../api/client'
+import { getAll, syncStore } from '../db'
 import type { NavItem } from '../types/api'
 
 // Use mock mode (set to false to use real API)
 const USE_MOCK = true
 
-const MOCK_NAV_ITEMS: NavItem[] = [
+const INITIAL_NAV_ITEMS: NavItem[] = [
   {
     id: 1,
     name: 'Dashboard',
@@ -25,6 +26,10 @@ const MOCK_NAV_ITEMS: NavItem[] = [
   },
 ]
 
+export async function seedNavigation(): Promise<void> {
+  await syncStore('navigation', INITIAL_NAV_ITEMS)
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -32,7 +37,7 @@ function delay(ms: number): Promise<void> {
 export async function getNavigation(): Promise<NavItem[]> {
   if (USE_MOCK) {
     await delay(300)
-    return MOCK_NAV_ITEMS
+    return getAll<NavItem>('navigation')
   }
 
   // Real API call

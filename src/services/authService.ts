@@ -1,26 +1,7 @@
 import apiClient from '../api/client'
+import { kvGet, kvSet, kvDelete } from '../db'
+import { getUserByLogin } from './userService'
 import type { UserAuth, LoginRequest, LoginResponse as ApiLoginResponse } from '../types/api'
-
-const MOCK_USERS: UserAuth[] = [
-  {
-    login: 'remontti.admin',
-    password: undefined as never,
-    name: 'Admin User',
-    email: 'admin@remontti.com',
-    role: 'admin',
-    startPage: '/management',
-  },
-  {
-    login: 'test.employee',
-    password: undefined as never,
-    name: 'Test Employee',
-    email: 'employee@remontti.com',
-    role: 'employee',
-    startPage: '/branches',
-  },
-]
-
-const MOCK_PASSWORD = 'password'
 
 const STORAGE_KEY = 'auth_user'
 const TOKEN_KEY = 'auth_token'
@@ -32,16 +13,25 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+async function getCredentials(): Promise<Record<string, string>> {
+  const data = await kvGet<Record<string, string>>('credentials')
+  return data || {}
+}
+
 export async function login(loginValue: string, passwordValue: string): Promise<LoginResponse> {
   if (USE_MOCK) {
     await delay(500)
 
-    const user = MOCK_USERS.find(u => u.login === loginValue && passwordValue === MOCK_PASSWORD)
+    const credentials = await getCredentials()
+    const storedPassword = credentials[loginValue]
 
-    if (user) {
-      const { password: _, ...userWithoutPassword } = user as any
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userWithoutPassword))
-      return { success: true, user: userWithoutPassword }
+    if (storedPassword && passwordValue === storedPassword) {
+      const user = await getUserByLogin(loginValue)
+      if (user) {
+        const { password: _, ...userWithoutPassword } = user as any
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(userWithoutPassword))
+        return { success: true, user: userWithoutPassword }
+      }
     }
 
     return {
@@ -69,7 +59,7 @@ export async function login(loginValue: string, passwordValue: string): Promise<
 
 export function logout(): void {
   localStorage.removeItem(STORAGE_KEY)
-  
+
   if (USE_MOCK) {
     return
   }
