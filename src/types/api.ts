@@ -6,6 +6,7 @@ export interface User {
   name: string
   role: 'admin' | 'user' | 'manager' | 'employee'
   startPage?: string
+  avatarUrl?: string
 }
 
 export interface UserAuth extends User {
@@ -76,6 +77,14 @@ export interface Branch {
 export interface GetBranchesResponse {
   success: boolean
   branches: Branch[]
+}
+
+// Navigation types
+export interface NavItem {
+  id: number
+  name: string
+  link: string
+  iconUrl: string
 }
 
 // Generic API response wrapper

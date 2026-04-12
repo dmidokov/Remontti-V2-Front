@@ -1,36 +1,23 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useTranslation } from '../composables/useTranslation'
+import SidebarMenu from '../components/SidebarMenu.vue'
 import { getCurrentUser } from '../services/authService'
-import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import type { UserAuth } from '../types/api'
 
 const { loadTranslations, t } = useTranslation()
-const router = useRouter()
+const route = useRoute()
 const user: UserAuth | null = getCurrentUser()
 
 onMounted(() => {
   loadTranslations('management')
 })
-
-const navigateTo = (route: string) => {
-  router.push(route)
-}
 </script>
 
 <template>
   <div class="management-page">
-    <nav class="management-nav">
-      <div class="nav-brand">
-        <T k="management.title" tag="span" />
-      </div>
-      <div class="nav-links">
-        <button @click="navigateTo('/dashboard')" class="nav-link">
-          <T k="management.back_to_dashboard" tag="span" />
-        </button>
-        <span class="user-name">{{ user?.name }}</span>
-      </div>
-    </nav>
+    <SidebarMenu :current-route="route.path" />
 
     <main class="management-content">
       <div class="page-header">
@@ -76,49 +63,7 @@ const navigateTo = (route: string) => {
   min-height: 100vh;
   width: 100vw;
   background: #f8f9fa;
-}
-
-.management-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.nav-brand {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #667eea;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.nav-link {
-  background: transparent;
-  color: #667eea;
-  border: 2px solid #667eea;
-  padding: 0.625rem 1.25rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.nav-link:hover {
-  background: #667eea;
-  color: white;
-}
-
-.user-name {
-  font-size: 0.95rem;
-  color: #555;
+  padding-left: 70px;
 }
 
 .management-content {
@@ -205,9 +150,5 @@ const navigateTo = (route: string) => {
 .card-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-p {
-  text-align: left;
 }
 </style>

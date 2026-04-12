@@ -1,44 +1,30 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useTranslation } from '../composables/useTranslation'
-import { getCurrentUser, logout } from '../services/authService'
-import { useRouter } from 'vue-router'
+import SidebarMenu from '../components/SidebarMenu.vue'
+import { getCurrentUser } from '../services/authService'
+import { useRoute } from 'vue-router'
 import type { UserAuth } from '../types/api'
 
 const { loadTranslations, t } = useTranslation()
-const router = useRouter()
+const route = useRoute()
 const user: UserAuth | null = getCurrentUser()
 
 onMounted(() => {
   loadTranslations('dashboard')
 })
-
-const handleLogout = () => {
-  logout()
-  router.push('/')
-}
 </script>
 
 <template>
   <div class="dashboard-page">
-    <nav class="dashboard-nav">
-      <div class="nav-brand">
-        <T k="dashboard.title" tag="span" />
-      </div>
-      <div class="nav-user">
-        <span class="user-name">{{ user?.name }}</span>
-        <button @click="handleLogout" class="logout-button">
-          <T k="dashboard.logout" tag="span" />
-        </button>
-      </div>
-    </nav>
-    
+    <SidebarMenu :current-route="route.path" />
+
     <main class="dashboard-content">
       <div class="welcome-card">
         <h1><T k="dashboard.welcome" /></h1>
         <p><T k="dashboard.welcome_text" /></p>
       </div>
-      
+
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-icon">📊</div>
@@ -47,7 +33,7 @@ const handleLogout = () => {
             <span class="stat-value">12</span>
           </div>
         </div>
-        
+
         <div class="stat-card">
           <div class="stat-icon">👥</div>
           <div class="stat-info">
@@ -55,7 +41,7 @@ const handleLogout = () => {
             <span class="stat-value">8</span>
           </div>
         </div>
-        
+
         <div class="stat-card">
           <div class="stat-icon">✅</div>
           <div class="stat-info">
@@ -63,7 +49,7 @@ const handleLogout = () => {
             <span class="stat-value">24</span>
           </div>
         </div>
-        
+
         <div class="stat-card">
           <div class="stat-icon">⏳</div>
           <div class="stat-info">
@@ -81,49 +67,7 @@ const handleLogout = () => {
   min-height: 100vh;
   width: 100vw;
   background: #f8f9fa;
-}
-
-.dashboard-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 2rem;
-  background: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.nav-brand {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #667eea;
-}
-
-.nav-user {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.user-name {
-  font-size: 0.95rem;
-  color: #555;
-}
-
-.logout-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 0.625rem 1.25rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.logout-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  padding-left: 70px;
 }
 
 .dashboard-content {

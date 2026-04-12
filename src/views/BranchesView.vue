@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useTranslation } from '../composables/useTranslation'
 import { getBranches, selectBranch } from '../services/branchService'
+import SidebarMenu from '../components/SidebarMenu.vue'
 import type { Branch } from '../types/api'
 
 const { loadTranslations, t, isLoading, isLoaded } = useTranslation()
-const router = useRouter()
+const route = useRoute()
 
 const branches = ref<Branch[]>([])
 const selectedBranch = ref<Branch | null>(null)
@@ -40,14 +41,15 @@ async function handleSubmit() {
   selectBranch(selectedBranch.value)
 
   // Redirect to dashboard after selecting branch
-  router.push('/dashboard')
-
+  // Note: router.push will be added when routing is integrated
   isSubmitting.value = false
 }
 </script>
 
 <template>
   <div class="branches-page">
+    <SidebarMenu :current-route="route.path" />
+
     <div v-if="!isLoaded || isLoading" class="loading-container">
       <div class="loading-spinner"></div>
     </div>
@@ -101,11 +103,8 @@ async function handleSubmit() {
 .branches-page {
   min-height: 100vh;
   width: 100vw;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: #f8f9fa;
-  padding: 2rem;
+  padding-left: 70px;
 }
 
 .loading-container {
@@ -134,6 +133,8 @@ async function handleSubmit() {
 .branches-content {
   width: 100%;
   max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
 }
 
 .branches-header {
