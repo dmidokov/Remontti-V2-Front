@@ -92,7 +92,7 @@ function getInitials(name: string): string {
           v-for="item in navItems"
           :key="item.id"
           class="nav-item"
-          :class="{ active: props.currentRoute === item.link }"
+          :class="[{ active: props.currentRoute === item.link }, isExpanded ? 'nav-item-full': 'nav-item-collapsed']"
           @click="handleNavigate(item.link)"
         >
           <div class="nav-icon">
@@ -147,6 +147,7 @@ function getInitials(name: string): string {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
+  justify-content: left;
   gap: 1rem;
   padding-left: 0.75rem;
   padding-right: 0.75rem;
@@ -256,6 +257,14 @@ function getInitials(name: string): string {
   text-align: left;
 }
 
+.nav-item-collapsed {
+  justify-content: center;
+}
+
+.nav-item-full {
+  justify-content: left;
+}
+
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
@@ -302,6 +311,7 @@ function getInitials(name: string): string {
 .logout-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 1rem;
   width: calc(100% - 1.5rem);
   margin: 0 0.75rem;
