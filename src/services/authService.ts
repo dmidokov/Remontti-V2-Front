@@ -1,6 +1,7 @@
 import apiClient from '../api/client'
 import { kvGet, kvSet, kvDelete } from '../db'
 import { getUserByLogin } from './userService'
+import { getCurrentHost } from '../utils/host'
 import type { UserAuth, LoginRequest, LoginResponse as ApiLoginResponse } from '../types/api'
 
 const STORAGE_KEY = 'auth_user'
@@ -22,12 +23,21 @@ export async function login(loginValue: string, passwordValue: string): Promise<
   if (USE_MOCK) {
     await delay(500)
 
+    const currentHost = getCurrentHost()
     const credentials = await getCredentials()
     const storedPassword = credentials[loginValue]
 
     if (storedPassword && passwordValue === storedPassword) {
       const user = await getUserByLogin(loginValue)
       if (user) {
+        // Проверяем соответствие поддомена
+        if (user.host && user.host !== 'localhost' && user.host !== currentHost && currentHost !== 'localhost') {
+          return {
+            success: false,
+            error: `Этот пользователь не доступен на данном поддомене`
+          }
+        }
+
         const { password: _, ...userWithoutPassword } = user as any
         localStorage.setItem(STORAGE_KEY, JSON.stringify(userWithoutPassword))
         return { success: true, user: userWithoutPassword }

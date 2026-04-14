@@ -21,6 +21,7 @@ const formData = ref({
   role: 'user' as User['role'],
   startPage: '/dashboard',
   avatarUrl: '',
+  host: 'work',
 })
 
 const formErrors = ref<Record<string, string>>({})
@@ -51,6 +52,7 @@ function openAddModal() {
     role: 'user',
     startPage: '/dashboard',
     avatarUrl: '',
+    host: 'work',
   }
   formErrors.value = {}
   showModal.value = true
@@ -65,6 +67,7 @@ function openEditModal(user: User) {
     role: user.role,
     startPage: user.startPage || '/dashboard',
     avatarUrl: user.avatarUrl || '',
+    host: user.host || 'work',
   }
   formErrors.value = {}
   showModal.value = true
@@ -98,6 +101,7 @@ async function handleSubmit() {
         role: formData.value.role,
         startPage: formData.value.startPage,
         avatarUrl: formData.value.avatarUrl || undefined,
+        host: formData.value.host,
       })
     } else {
       await createUser({
@@ -107,6 +111,7 @@ async function handleSubmit() {
         role: formData.value.role,
         startPage: formData.value.startPage,
         avatarUrl: formData.value.avatarUrl || undefined,
+        host: formData.value.host,
       })
     }
     await loadUsers()
@@ -181,6 +186,7 @@ const ROLE_COLORS: Record<User['role'], string> = {
               <th>Login</th>
               <th>Email</th>
               <th>Role</th>
+              <th>Host</th>
               <th>Start Page</th>
               <th>Actions</th>
             </tr>
@@ -200,6 +206,7 @@ const ROLE_COLORS: Record<User['role'], string> = {
                   {{ ROLE_LABELS[user.role] }}
                 </span>
               </td>
+              <td><code>{{ user.host || '—' }}</code></td>
               <td><code>{{ user.startPage || '/dashboard' }}</code></td>
               <td class="actions-cell">
                 <button class="action-btn edit-btn" @click="openEditModal(user)">Edit</button>
@@ -255,6 +262,14 @@ const ROLE_COLORS: Record<User['role'], string> = {
                 <option value="/branches">Branches</option>
                 <option value="/management">Management</option>
                 <option value="/users">Users</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Host (поддомен)</label>
+              <select v-model="formData.host">
+                <option value="work">work</option>
+                <option value="control">control</option>
               </select>
             </div>
 

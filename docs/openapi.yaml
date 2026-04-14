@@ -330,6 +330,10 @@ components:
           type: string
           description: URL аватара пользователя
           example: /avatars/user1.png
+        host:
+          type: string
+          description: Поддомен, к которому привязан пользователь
+          example: work
 
     TranslationResponse:
       type: object
@@ -455,6 +459,9 @@ components:
         avatarUrl:
           type: string
           example: /avatars/john.png
+        host:
+          type: string
+          example: work
 
     Error:
       type: object

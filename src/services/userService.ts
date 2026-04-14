@@ -1,7 +1,7 @@
-import { getAll, add, update, remove, kvSet, getById, seedStore } from '../db'
+import { getAll, add, update, remove, kvSet, kvGet, getById, seedStore } from '../db'
 import type { User } from '../types/api'
 
-export type CreateUserInput = Pick<User, 'login' | 'email' | 'name' | 'role' | 'avatarUrl' | 'startPage'>
+export type CreateUserInput = Pick<User, 'login' | 'email' | 'name' | 'role' | 'avatarUrl' | 'startPage' | 'host'>
 export type UpdateUserInput = Partial<CreateUserInput> & { id: number }
 
 const INITIAL_USERS: (CreateUserInput & { login: string })[] = [
@@ -11,6 +11,7 @@ const INITIAL_USERS: (CreateUserInput & { login: string })[] = [
     name: 'Admin User',
     role: 'admin',
     startPage: '/management',
+    host: 'work',
   },
   {
     login: 'test.employee',
@@ -18,13 +19,41 @@ const INITIAL_USERS: (CreateUserInput & { login: string })[] = [
     name: 'Test Employee',
     role: 'employee',
     startPage: '/branches',
+    host: 'work',
+  },
+  {
+    login: 'super.admin',
+    email: 'superadmin@remontti.com',
+    name: 'Super Admin',
+    role: 'admin',
+    startPage: '/users',
+    host: 'control',
   },
 ]
 
+async function migrateUsersHost(): Promise<void> {
+  const users = await getAll<User>('users')
+  for (const user of users) {
+    if (!user.host) {
+      await update('users', { ...user, host: 'work' } as User & { id: number })
+    }
+  }
+}
+
 export async function seedUsers(): Promise<void> {
   // Seed auth credentials (login/password pairs) — всегда обновляем
-  await kvSet('credentials', { 'remontti.admin': 'password', 'test.employee': 'password' })
-  // Seed users — add-only по login (существующих не трогаем)
+  const credentials = await kvGet<Record<string, string>>('credentials') || {}
+  await kvSet('credentials', {
+    ...credentials,
+    'remontti.admin': 'password',
+    'test.employee': 'password',
+    'super.admin': 'password',
+  })
+
+  // Миграция: добавить host существующим пользователям
+  await migrateUsersHost()
+
+  // Seed новых пользователей — add-only по login
   await seedStore('users', INITIAL_USERS, 'login')
 }
 

@@ -7,6 +7,7 @@ export interface User {
   role: 'admin' | 'user' | 'manager' | 'employee'
   startPage?: string
   avatarUrl?: string
+  host?: string
 }
 
 export interface UserAuth extends User {
