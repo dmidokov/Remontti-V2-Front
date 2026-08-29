@@ -5,6 +5,7 @@ import router from './router'
 import T from './components/T.vue'
 import { seedUsers } from './services/userService'
 import { seedNavigation } from './services/navigationService'
+import { seedManagementCards } from './services/managementCardService'
 
 const app = createApp(App)
 app.component('T', T)
@@ -14,6 +15,7 @@ app.use(router)
 Promise.all([
   seedUsers(),
   seedNavigation(),
+  seedManagementCards(),
 ]).catch(console.error)
 
 app.mount('#app')

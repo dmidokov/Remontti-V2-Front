@@ -22,6 +22,7 @@ const formData = ref({
   startPage: '/dashboard',
   avatarUrl: '',
   host: 'work',
+  settings_right: 0,
 })
 
 const formErrors = ref<Record<string, string>>({})
@@ -53,6 +54,7 @@ function openAddModal() {
     startPage: '/dashboard',
     avatarUrl: '',
     host: 'work',
+    settings_right: 0,
   }
   formErrors.value = {}
   showModal.value = true
@@ -68,6 +70,7 @@ function openEditModal(user: User) {
     startPage: user.startPage || '/dashboard',
     avatarUrl: user.avatarUrl || '',
     host: user.host || 'work',
+    settings_right: user.settings_right ?? 0,
   }
   formErrors.value = {}
   showModal.value = true
@@ -76,6 +79,18 @@ function openEditModal(user: User) {
 function closeModal() {
   showModal.value = false
   editingUser.value = null
+}
+
+const bitOptions = [
+  { value: 0b00001, label: 'Пользователи' },
+  { value: 0b00010, label: 'Настройки' },
+  { value: 0b00100, label: 'Роли' },
+  { value: 0b01000, label: 'Безопасность' },
+  { value: 0b10000, label: 'Бэкапы' },
+]
+
+function toggleBit(bit: number) {
+  formData.value.settings_right ^= bit
 }
 
 function validateForm(): boolean {
@@ -102,6 +117,7 @@ async function handleSubmit() {
         startPage: formData.value.startPage,
         avatarUrl: formData.value.avatarUrl || undefined,
         host: formData.value.host,
+        settings_right: formData.value.settings_right,
       })
     } else {
       await createUser({
@@ -112,6 +128,7 @@ async function handleSubmit() {
         startPage: formData.value.startPage,
         avatarUrl: formData.value.avatarUrl || undefined,
         host: formData.value.host,
+        settings_right: formData.value.settings_right,
       })
     }
     await loadUsers()
@@ -187,6 +204,7 @@ const ROLE_COLORS: Record<User['role'], string> = {
               <th>Email</th>
               <th>Role</th>
               <th>Host</th>
+              <th>Rights</th>
               <th>Start Page</th>
               <th>Actions</th>
             </tr>
@@ -207,6 +225,7 @@ const ROLE_COLORS: Record<User['role'], string> = {
                 </span>
               </td>
               <td><code>{{ user.host || '—' }}</code></td>
+              <td><code>{{ user.settings_right?.toString(2).padStart(5, '0') || '00000' }}</code></td>
               <td><code>{{ user.startPage || '/dashboard' }}</code></td>
               <td class="actions-cell">
                 <button class="action-btn edit-btn" @click="openEditModal(user)">Edit</button>
@@ -271,6 +290,16 @@ const ROLE_COLORS: Record<User['role'], string> = {
                 <option value="work">work</option>
                 <option value="control">control</option>
               </select>
+            </div>
+
+            <div class="form-group">
+              <label>Права (битовая маска)</label>
+              <div class="bits-row">
+                <label v-for="bit in bitOptions" :key="bit.value" class="bit-check">
+                  <input type="checkbox" :checked="!!(formData.settings_right & bit.value)" @change="toggleBit(bit.value)" />
+                  <span>{{ bit.label }}</span>
+                </label>
+              </div>
             </div>
 
             <div class="form-group">
@@ -558,6 +587,28 @@ code {
 .field-error {
   color: #dc3545;
   font-size: 0.8rem;
+}
+
+.bits-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bit-check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bit-check input[type="checkbox"] {
+  accent-color: #667eea;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .modal-actions {

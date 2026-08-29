@@ -29,6 +29,10 @@
       "description": "Операции навигации"
     },
     {
+      "name": "Management",
+      "description": "Карточки управления"
+    },
+    {
       "name": "Users",
       "description": "Управление пользователями"
     },
@@ -170,6 +174,43 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/NavItem"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизованный запрос",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/management/cards/get": {
+      "get": {
+        "tags": ["Management"],
+        "summary": "Получить карточки управления",
+        "description": "Возвращает карточки управления, доступные пользователю на основе битовой маски settings_right",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешное получение карточек",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagementCard"
                   }
                 }
               }
@@ -513,6 +554,11 @@
             "type": "string",
             "description": "Поддомен, к которому привязан пользователь",
             "example": "work"
+          },
+          "settings_right": {
+            "type": "integer",
+            "description": "Битовая маска прав доступа для разделов управления",
+            "example": 31
           }
         }
       },
@@ -556,6 +602,42 @@
             "type": "string",
             "description": "URL иконки для пункта меню",
             "example": "/icons/dashboard.svg"
+          }
+        }
+      },
+      "ManagementCard": {
+        "type": "object",
+        "required": ["id", "title", "description", "iconUrl", "requiredBit", "link"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Уникальный идентификатор карточки",
+            "example": 1
+          },
+          "title": {
+            "type": "string",
+            "description": "Заголовок карточки",
+            "example": "Пользователи"
+          },
+          "description": {
+            "type": "string",
+            "description": "Описание раздела",
+            "example": "Управление пользователями системы"
+          },
+          "iconUrl": {
+            "type": "string",
+            "description": "URL иконки",
+            "example": "/icons/management/users.svg"
+          },
+          "requiredBit": {
+            "type": "integer",
+            "description": "Необходимый бит в settings_right",
+            "example": 1
+          },
+          "link": {
+            "type": "string",
+            "description": "Ссылка для перехода",
+            "example": "/users"
           }
         }
       },
@@ -608,6 +690,11 @@
           "host": {
             "type": "string",
             "example": "work"
+          },
+          "settings_right": {
+            "type": "integer",
+            "description": "Битовая маска прав доступа для разделов управления",
+            "example": 31
           }
         }
       },
@@ -643,6 +730,11 @@
           "host": {
             "type": "string",
             "example": "work"
+          },
+          "settings_right": {
+            "type": "integer",
+            "description": "Битовая маска прав доступа для разделов управления",
+            "example": 31
           }
         }
       },

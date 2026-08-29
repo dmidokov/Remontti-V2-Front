@@ -1,7 +1,7 @@
 import { getAll, add, update, remove, kvSet, kvGet, getById, seedStore } from '../db'
 import type { User } from '../types/api'
 
-export type CreateUserInput = Pick<User, 'login' | 'email' | 'name' | 'role' | 'avatarUrl' | 'startPage' | 'host'>
+export type CreateUserInput = Pick<User, 'login' | 'email' | 'name' | 'role' | 'avatarUrl' | 'startPage' | 'host' | 'settings_right'>
 export type UpdateUserInput = Partial<CreateUserInput> & { id: number }
 
 const INITIAL_USERS: (CreateUserInput & { login: string })[] = [
@@ -12,6 +12,7 @@ const INITIAL_USERS: (CreateUserInput & { login: string })[] = [
     role: 'admin',
     startPage: '/management',
     host: 'work',
+    settings_right: 0b11111, // все биты
   },
   {
     login: 'test.employee',
@@ -20,6 +21,7 @@ const INITIAL_USERS: (CreateUserInput & { login: string })[] = [
     role: 'employee',
     startPage: '/branches',
     host: 'work',
+    settings_right: 0b00001, // только Users
   },
   {
     login: 'super.admin',
@@ -28,6 +30,7 @@ const INITIAL_USERS: (CreateUserInput & { login: string })[] = [
     role: 'admin',
     startPage: '/users',
     host: 'control',
+    settings_right: 0b11111, // все биты
   },
 ]
 

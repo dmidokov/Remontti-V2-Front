@@ -1,18 +1,38 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useTranslation } from '../composables/useTranslation'
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import SidebarMenu from '../components/SidebarMenu.vue'
 import { getCurrentUser } from '../services/authService'
-import { useRoute } from 'vue-router'
-import type { UserAuth } from '../types/api'
+import { getManagementCards } from '../services/managementCardService'
+import type { ManagementCard, UserAuth } from '../types/api'
 
-const { loadTranslations, t } = useTranslation()
 const route = useRoute()
+const router = useRouter()
 const user: UserAuth | null = getCurrentUser()
 
+const cards = ref<ManagementCard[]>([])
+const isLoading = ref(false)
+
 onMounted(() => {
-  loadTranslations('management')
+  loadCards()
 })
+
+async function loadCards() {
+  isLoading.value = true
+  try {
+    console.log("Try to load user rights", user?.settings_right)
+    cards.value = await getManagementCards(user?.settings_right ?? 0)
+  } catch (e) {
+    console.error('Failed to load management cards:', e)
+    cards.value = []
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function handleNavigate(link: string) {
+  router.push(link)
+}
 </script>
 
 <template>
@@ -21,37 +41,30 @@ onMounted(() => {
 
     <main class="management-content">
       <div class="page-header">
-        <h1><T k="management.welcome" /></h1>
-        <p><T k="management.description" /></p>
+        <h1>Управление</h1>
+        <p>Доступные разделы управления системой</p>
       </div>
 
-      <div class="management-grid">
-        <div class="management-card">
-          <div class="card-icon">👥</div>
-          <h3><T k="management.users" /></h3>
-          <p><T k="management.users_desc" /></p>
-          <button class="card-button"><T k="management.manage" tag="span" /></button>
-        </div>
+      <div v-if="isLoading" class="loading">Загрузка...</div>
 
-        <div class="management-card">
-          <div class="card-icon">⚙️</div>
-          <h3><T k="management.settings" /></h3>
-          <p><T k="management.settings_desc" /></p>
-          <button class="card-button"><T k="management.manage" tag="span" /></button>
-        </div>
+      <div v-else-if="cards.length === 0" class="empty-state">
+        <p>У вас нет доступных разделов управления</p>
+      </div>
 
-        <div class="management-card">
-          <div class="card-icon">📋</div>
-          <h3><T k="management.roles" /></h3>
-          <p><T k="management.roles_desc" /></p>
-          <button class="card-button"><T k="management.manage" tag="span" /></button>
-        </div>
-
-        <div class="management-card">
-          <div class="card-icon">🔐</div>
-          <h3><T k="management.permissions" /></h3>
-          <p><T k="management.permissions_desc" /></p>
-          <button class="card-button"><T k="management.manage" tag="span" /></button>
+      <div v-else class="cards-grid">
+        <div
+          v-for="card in cards"
+          :key="card.id"
+          class="management-card"
+          @click="handleNavigate(card.link)"
+        >
+          <div class="card-icon">
+            <img :src="card.iconUrl" :alt="card.title" />
+          </div>
+          <div class="card-body">
+            <h3>{{ card.title }}</h3>
+            <p>{{ card.description }}</p>
+          </div>
         </div>
       </div>
     </main>
@@ -68,23 +81,19 @@ onMounted(() => {
 
 .management-content {
   padding: 2rem;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .page-header {
-  background: white;
-  border-radius: 16px;
-  padding: 2.5rem;
   margin-bottom: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .page-header h1 {
   font-size: 2rem;
   font-weight: 700;
   color: #1a1a2e;
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 0.25rem 0;
 }
 
 .page-header p {
@@ -93,9 +102,20 @@ onMounted(() => {
   margin: 0;
 }
 
-.management-grid {
+.loading,
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+  font-size: 1.1rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 1.5rem;
 }
 
@@ -106,8 +126,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 1.25rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -117,38 +138,30 @@ onMounted(() => {
 }
 
 .card-icon {
-  font-size: 3rem;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.management-card h3 {
+.card-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.card-body h3 {
   font-size: 1.25rem;
   font-weight: 600;
   color: #1a1a2e;
-  margin: 0;
+  margin: 0 0 0.5rem 0;
 }
 
-.management-card p {
-  font-size: 1rem;
+.card-body p {
+  font-size: 0.95rem;
   color: #666;
   margin: 0;
-  flex-grow: 1;
-}
-
-.card-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  align-self: flex-start;
-}
-
-.card-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  line-height: 1.5;
 }
 </style>

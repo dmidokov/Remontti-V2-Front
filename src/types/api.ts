@@ -8,6 +8,7 @@ export interface User {
   startPage?: string
   avatarUrl?: string
   host?: string
+  settings_right?: number
 }
 
 export interface UserAuth extends User {
@@ -86,6 +87,16 @@ export interface NavItem {
   name: string
   link: string
   iconUrl: string
+}
+
+// Management card types
+export interface ManagementCard {
+  id: number
+  title: string
+  description: string
+  iconUrl: string
+  requiredBit: number
+  link: string
 }
 
 // Generic API response wrapper

@@ -1,11 +1,12 @@
 const DB_NAME = 'remontti-mock-db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onupgradeneeded = (event) => {
+      console.log("hello")
       const db = (event.target as IDBOpenDBRequest).result
       if (!db.objectStoreNames.contains('users')) {
         db.createObjectStore('users', { keyPath: 'id', autoIncrement: true })
@@ -15,6 +16,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('auth')) {
         db.createObjectStore('auth', { keyPath: 'key' })
+      }
+      if (!db.objectStoreNames.contains('managementCards')) {
+        db.createObjectStore('managementCards', { keyPath: 'id' })
       }
     }
 
@@ -147,23 +151,29 @@ export async function syncStore<T extends { id: number }>(storeName: string, dat
   const existing = await getAll<T>(storeName)
   const existingMap = new Map(existing.map(item => [item.id, item]))
 
+  console.log(`[syncStore] ${storeName}: ${existing.length} existing, ${data.length} to sync`)
+
   const db = await openDB()
   const tx = db.transaction(storeName, 'readwrite')
   const store = tx.objectStore(storeName)
 
   for (const item of data) {
     if (existingMap.has(item.id)) {
-      // Обновляем существующую запись
       store.put(item)
     } else {
-      // Добавляем новую
       store.add(item)
     }
   }
 
   return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
+    tx.oncomplete = () => {
+      console.log(`[syncStore] ${storeName}: complete`)
+      resolve()
+    }
+    tx.onerror = () => {
+      console.error(`[syncStore] ${storeName} error:`, tx.error)
+      reject(tx.error)
+    }
   })
 }
 
