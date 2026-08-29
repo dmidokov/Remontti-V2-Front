@@ -93,6 +93,36 @@ function toggleBit(bit: number) {
   formData.value.settings_right ^= bit
 }
 
+function transliterate(text: string): string {
+  const map: Record<string, string> = {
+    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z',
+    и: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r',
+    с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch',
+    ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+  }
+  return text
+    .toLowerCase()
+    .replace(/ё/g, 'e')
+    .split('')
+    .map(ch => map[ch] ?? ch)
+    .join('')
+    .replace(/[^a-z0-9.]+/g, '.')
+    .replace(/^\.+|\.+$/g, '')
+    .replace(/\.{2,}/g, '.')
+}
+
+function getMainDomain(): string {
+  return window.location.hostname.split('.').slice(-2).join('.')
+}
+
+function onNameInput() {
+  if (editingUser.value) return
+  formData.value.login = transliterate(formData.value.name)
+  formData.value.email = formData.value.login
+    ? `${formData.value.login}@${getMainDomain()}`
+    : ''
+}
+
 function validateForm(): boolean {
   formErrors.value = {}
   if (!formData.value.login.trim()) formErrors.value.login = 'Login is required'
@@ -248,8 +278,14 @@ const ROLE_COLORS: Record<User['role'], string> = {
 
           <form class="modal-form" @submit.prevent="handleSubmit">
             <div class="form-group">
+              <label>Name</label>
+              <input v-model="formData.name" @input="onNameInput" type="text" :class="{ error: formErrors.name }" placeholder="Иван Иванов" />
+              <span v-if="formErrors.name" class="field-error">{{ formErrors.name }}</span>
+            </div>
+
+            <div class="form-group">
               <label>Login</label>
-              <input v-model="formData.login" type="text" :class="{ error: formErrors.login }" placeholder="john.doe" />
+              <input v-model="formData.login" type="text" :class="{ error: formErrors.login }" placeholder="ivan.ivanov" />
               <span v-if="formErrors.login" class="field-error">{{ formErrors.login }}</span>
             </div>
 
@@ -257,12 +293,6 @@ const ROLE_COLORS: Record<User['role'], string> = {
               <label>Email</label>
               <input v-model="formData.email" type="email" :class="{ error: formErrors.email }" placeholder="john@company.com" />
               <span v-if="formErrors.email" class="field-error">{{ formErrors.email }}</span>
-            </div>
-
-            <div class="form-group">
-              <label>Name</label>
-              <input v-model="formData.name" type="text" :class="{ error: formErrors.name }" placeholder="John Doe" />
-              <span v-if="formErrors.name" class="field-error">{{ formErrors.name }}</span>
             </div>
 
             <div class="form-group">
