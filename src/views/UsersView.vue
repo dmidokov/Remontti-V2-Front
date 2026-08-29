@@ -225,6 +225,8 @@ const ROLE_COLORS: Record<User['role'], string> = {
 
       <div v-if="isLoading" class="loading">Loading users...</div>
 
+      <!-- TODO: убрать табличное представление позднее -->
+      <!--
       <div v-else class="users-table">
         <table>
           <thead>
@@ -264,6 +266,37 @@ const ROLE_COLORS: Record<User['role'], string> = {
             </tr>
           </tbody>
         </table>
+      </div>
+      -->
+
+      <div class="users-cards-block">
+        <h2 class="cards-title">Users as Cards</h2>
+        <div class="users-cards">
+          <div v-for="user in users" :key="user.id" class="user-card">
+            <div class="user-card-header">
+              <div class="user-avatar-large">
+                {{ user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) }}
+              </div>
+              <div class="user-card-name">
+                <h3>{{ user.name }}</h3>
+                <span class="role-badge" :style="{ background: ROLE_COLORS[user.role] + '22', color: ROLE_COLORS[user.role] }">
+                  {{ ROLE_LABELS[user.role] }}
+                </span>
+              </div>
+            </div>
+            <div class="user-card-meta">
+              <div><span>Login:</span> <span class="val">{{ user.login }}</span></div>
+              <div><span>Email:</span> <span class="val">{{ user.email }}</span></div>
+              <div><span>Host:</span> <span class="val">{{ user.host || '—' }}</span></div>
+              <div><span>Rights:</span> <span class="val">{{ user.settings_right?.toString(2).padStart(5, '0') || '00000' }}</span></div>
+              <div><span>Start page:</span> <span class="val">{{ user.startPage || '/dashboard' }}</span></div>
+            </div>
+            <div class="card-actions">
+              <button class="action-btn edit-btn" @click="openEditModal(user)">Edit</button>
+              <button class="action-btn delete-btn" @click="handleDelete(user)">Delete</button>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -476,6 +509,118 @@ tr:hover td {
   font-size: 0.7rem;
   font-weight: 600;
   flex-shrink: 0;
+}
+
+.users-cards-block {
+  margin-top: 2.5rem;
+}
+
+.cards-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 1rem 0;
+}
+
+.users-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.user-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.user-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.user-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-avatar-large {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.user-card-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #333;
+  text-align: left;
+  padding-left: 10px;
+}
+
+.user-card-meta div {
+  display: flex;
+  align-items: baseline;
+}
+
+.user-card-meta div span:first-child {
+  color: #888;
+  font-size: 0.8rem;
+  width: 90px;
+  flex-shrink: 0;
+  text-align: left;
+}
+
+.user-card-meta div span.val {
+  font-size: 0.9rem;
+  color: #333;
+  word-break: break-all;
+  background: #f0f0f0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: auto;
 }
 
 code {
