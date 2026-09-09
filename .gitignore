@@ -2,3 +2,8 @@ node_modules
 dist
 .DS_Store
 .qwen
+/.env
+/AGENTS.md
+/.opencode/agent/architect.md
+/.opencode/agent/senior-frontend.md
+/.opencode/agent/senior-vue.md

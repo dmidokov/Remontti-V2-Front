@@ -1,63 +1,9 @@
 import apiClient from '../api/client'
-import type { TranslationResponse } from '../types/api'
-
-// Mock translations data (used as fallback)
-const mockTranslations: Record<string, TranslationResponse> = {
-  login: {
-    'login.title': 'Ремонтти Версия 2.0',
-    'login.subtitle': 'Enter your credentials to access your account',
-    'login.login.label': 'Login',
-    'login.login.placeholder': 'john.doe',
-    'login.password.label': 'Password',
-    'login.password.placeholder': 'Enter your password',
-    'login.remember_me': 'Запомни меня',
-    'login.forgot_password': 'Forgot password?',
-    'login.sign_in': 'Войти',
-    'login.signing_in': 'Signing in...',
-    'login.no_account': "Don't have an account?",
-    'login.contact_admin': 'Contact administrator',
-    'login.error.required': 'Please fill in all fields',
-    'login.error.invalid_format': 'Please enter a valid login (format: string.string)',
-    'login.error.invalid_credentials': 'Invalid login or password',
-  },
-  dashboard: {
-    'dashboard.title': 'CRM System',
-    'dashboard.logout': 'Logout',
-    'dashboard.welcome': 'Welcome back!',
-    'dashboard.welcome_text': 'Here\'s what\'s happening with your projects today.',
-    'dashboard.projects': 'Projects',
-    'dashboard.team_members': 'Team Members',
-    'dashboard.completed': 'Completed',
-    'dashboard.in_progress': 'In Progress',
-  },
-  branches: {
-    'branches.title': 'Выберите филиал',
-    'branches.subtitle': 'Где вы будете работать сегодня?',
-    'branches.status.active': 'Активен',
-    'branches.status.inactive': 'Не активен',
-    'branches.continue': 'Продолжить',
-    'branches.submitting': 'Загрузка...',
-    'branches.error.load_failed': 'Не удалось загрузить список филиалов',
-    'branches.error.select_branch': 'Пожалуйста, выберите филиал',
-  },
-  management: {
-    'management.users': 'Работники',
-    'management.users_desc':'Управление работниками. Создание/редактирование/удаление',
-    'management.branches': 'Филиалы',
-    'management.manage': 'Открыть',
-    'management.welcome':'Управление',
-    'management.description':'общие настройки / меню и описание будут редактироваться - эти надпи для теста ',
-  },
-}
+import { mockApiClient, MOCK_TRANSLATIONS } from '../api/mockApiClient'
+import { USE_MOCK } from '../config'
+import type { TranslationResponse, GetTranslationsResponse } from '../types/api'
 
 const STORAGE_PREFIX = 'translations_'
-
-// Use mock mode (set to false to use real API)
-const USE_MOCK = true
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
 
 export function getFromStorage(page: string): TranslationResponse | null {
   try {
@@ -91,33 +37,33 @@ export function saveToStorage(page: string, translations: TranslationResponse): 
   }
 }
 
+/** Приводит ответ API (ключи без префикса) к плоскому виду с префиксом страницы: { ['login.title']: '...' } */
+function normalizeApiTranslations(raw: GetTranslationsResponse): TranslationResponse {
+  const flat: TranslationResponse = {}
+  for (const [key, value] of Object.entries(raw.items)) {
+    flat[`${raw.page}.${key}`] = value
+  }
+  return flat
+}
+
 export async function fetchTranslations(page: string): Promise<TranslationResponse> {
   if (USE_MOCK) {
-    await delay(300) // Simulate network delay
-    
-    const translations = mockTranslations[page] || {}
-    
-    if (!translations) {
-      console.warn(`No translations found for page: ${page}`)
-    }
-    
+    const translations = await mockApiClient.getTranslations(page)
+    saveToStorage(page, translations)
     return translations
   }
-  
+
   // Real API call
   try {
-    const translations = await apiClient.getTranslations(page)
+    const raw = await apiClient.getTranslations(page)
+    const translations = normalizeApiTranslations(raw)
     saveToStorage(page, translations)
     return translations
   } catch (error) {
     console.error('Failed to fetch translations from API:', error)
-    
-    // Fallback to mock data
+
+    // Fallback to cached/mock data
     const cachedTranslations = getFromStorage(page)
-    if (cachedTranslations) {
-      return cachedTranslations
-    }
-    
-    return mockTranslations[page] || {}
+    return cachedTranslations || MOCK_TRANSLATIONS[page] || {}
   }
 }

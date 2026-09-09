@@ -1,9 +1,8 @@
 import apiClient from '../api/client'
-import { getAll, syncStore } from '../db'
+import { mockApiClient } from '../api/mockApiClient'
+import { syncStore } from '../db'
+import { USE_MOCK } from '../config'
 import type { NavItem } from '../types/api'
-
-// Use mock mode (set to false to use real API)
-const USE_MOCK = true
 
 const INITIAL_NAV_ITEMS: NavItem[] = [
   {
@@ -36,20 +35,11 @@ export async function seedNavigation(): Promise<void> {
   await syncStore('navigation', INITIAL_NAV_ITEMS)
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 export async function getNavigation(): Promise<NavItem[]> {
-  if (USE_MOCK) {
-    await delay(300)
-    return getAll<NavItem>('navigation')
-  }
-
-  // Real API call
   try {
-    const response = await apiClient.getNavigation()
-    return response
+    return USE_MOCK
+      ? await mockApiClient.getNavigation()
+      : await apiClient.getNavigation()
   } catch (error) {
     console.error('Failed to fetch navigation:', error)
     throw error

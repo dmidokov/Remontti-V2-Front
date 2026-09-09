@@ -45,9 +45,11 @@ export interface TranslationResponse {
   [key: string]: string
 }
 
+/** Ответ API переводов (внутри items ключи БЕЗ префикса страницы). */
 export interface GetTranslationsResponse {
-  translations: TranslationResponse
-  timestamp: number
+  page: string
+  language: string
+  items: Record<string, string>
 }
 
 // API Error types

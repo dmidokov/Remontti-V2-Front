@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import SidebarMenu from '../components/SidebarMenu.vue'
 import { getUsers, createUser, updateUser, deleteUser } from '../services/userService'
@@ -8,6 +8,7 @@ import type { User } from '../types/api'
 const route = useRoute()
 
 const users = ref<User[]>([])
+const searchQuery = ref('')
 const isLoading = ref(false)
 const error = ref('')
 const showModal = ref(false)
@@ -194,6 +195,17 @@ const ROLE_LABELS: Record<User['role'], string> = {
   employee: 'Employee',
 }
 
+const filteredUsers = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return users.value
+  return users.value.filter(user =>
+    user.name.toLowerCase().includes(q) ||
+    user.login.toLowerCase().includes(q) ||
+    user.host?.toLowerCase().includes(q) ||
+    ROLE_LABELS[user.role].toLowerCase().includes(q),
+  )
+})
+
 const ROLE_COLORS: Record<User['role'], string> = {
   admin: '#dc3545',
   user: '#667eea',
@@ -270,9 +282,16 @@ const ROLE_COLORS: Record<User['role'], string> = {
       -->
 
       <div class="users-cards-block">
-        <h2 class="cards-title">Users as Cards</h2>
+        <div class="search-row">
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="search-input"
+            placeholder="Поиск по имени, логину, роли или хосту..."
+          />
+        </div>
         <div class="users-cards">
-          <div v-for="user in users" :key="user.id" class="user-card">
+          <div v-for="user in filteredUsers" :key="user.id" class="user-card">
             <div class="user-card-header">
               <div class="user-avatar-large">
                 {{ user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) }}
@@ -296,6 +315,10 @@ const ROLE_COLORS: Record<User['role'], string> = {
               <button class="action-btn delete-btn" @click="handleDelete(user)">Delete</button>
             </div>
           </div>
+        </div>
+
+        <div v-if="filteredUsers.length === 0" class="no-results">
+          Ничего не найдено по запросу «{{ searchQuery }}»
         </div>
       </div>
     </main>
@@ -355,7 +378,7 @@ const ROLE_COLORS: Record<User['role'], string> = {
               </select>
             </div>
 
-            <div class="form-group">
+            <div class="form-group form-group-full">
               <label>Права (битовая маска)</label>
               <div class="bits-row">
                 <label v-for="bit in bitOptions" :key="bit.value" class="bit-check">
@@ -365,7 +388,7 @@ const ROLE_COLORS: Record<User['role'], string> = {
               </div>
             </div>
 
-            <div class="form-group">
+            <div class="form-group form-group-full">
               <label>Avatar URL (optional)</label>
               <input v-model="formData.avatarUrl" type="text" placeholder="/avatars/user.png" />
             </div>
@@ -512,7 +535,28 @@ tr:hover td {
 }
 
 .users-cards-block {
-  margin-top: 2.5rem;
+  margin-top: 1.5rem;
+}
+
+.search-row {
+  margin-bottom: 1.5rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: white;
+  color: #333;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .cards-title {
@@ -526,6 +570,16 @@ tr:hover td {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
+}
+
+.no-results {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+  font-size: 1.05rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .user-card {
@@ -686,7 +740,7 @@ code {
   background: white;
   border-radius: 16px;
   width: 100%;
-  max-width: 500px;
+  max-width: 680px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -722,15 +776,21 @@ code {
 
 .modal-form {
   padding: 1.5rem 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 1.5rem;
+  align-items: start;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
+}
+
+.form-group-full {
+  grid-column: 1 / -1;
 }
 
 .form-group label {
@@ -745,6 +805,9 @@ code {
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   font-size: 0.95rem;
+  background: #ffffff;
+  color: #333;
+  color-scheme: light;
   transition: border-color 0.2s;
 }
 

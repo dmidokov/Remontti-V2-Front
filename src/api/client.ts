@@ -2,7 +2,7 @@ import type {
   LoginRequest,
   LoginResponse,
   LogoutResponse,
-  TranslationResponse,
+  GetTranslationsResponse,
   ApiError,
   GetBranchesResponse,
   NavItem,
@@ -97,8 +97,8 @@ class ApiClient {
   }
 
   // Translations endpoints
-  async getTranslations(page: string): Promise<TranslationResponse> {
-    return this.request<TranslationResponse>(`/translations/${page}`)
+  async getTranslations(page: string): Promise<GetTranslationsResponse> {
+    return this.request<GetTranslationsResponse>(`/translations/${page}`)
   }
 
   // Branch endpoints
