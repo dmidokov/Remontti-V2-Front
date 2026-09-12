@@ -34,6 +34,7 @@ export interface LoginResponse {
   success: boolean
   user?: UserAuth
   token?: string
+  start_page?: string
   error?: string
 }
 

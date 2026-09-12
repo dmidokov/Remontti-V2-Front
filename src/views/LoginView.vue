@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useTranslation } from '../composables/useTranslation'
+import { showToast } from '../composables/useToast'
 import { login } from '../services/authService'
 import { useRouter } from 'vue-router'
 
@@ -9,36 +10,49 @@ const router = useRouter()
 
 const email = ref('')
 const password = ref('')
-const error = ref('')
+const loginError = ref(false)
+const passwordError = ref(false)
 const isSubmitting = ref(false)
 
 onMounted(() => {
   loadTranslations('login')
 })
 
+function clearFieldErrors(): void {
+  loginError.value = false
+  passwordError.value = false
+}
+
+function notifyError(message: string): void {
+  showToast(message, 'error')
+}
+
 const handleSubmit = async () => {
-  error.value = ''
+  clearFieldErrors()
 
   if (!email.value || !password.value) {
-    error.value = t('login.error.required', 'Please fill in all fields')
+    loginError.value = !email.value
+    passwordError.value = !password.value
+    notifyError(t('login.error.required', 'Please fill in all fields'))
     return
   }
 
-  const loginFormatRegex = /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/
-  if (!loginFormatRegex.test(email.value)) {
-    error.value = t('login.error.invalid_format', 'Please enter a valid login (format: string.string)')
-    return
-  }
+  // const loginFormatRegex = /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/
+  // if (!loginFormatRegex.test(email.value)) {
+  //   loginError.value = true
+  //   showToast(t('login.error.invalid_format', 'Please enter a valid login (format: string.string)'), 'error')
+  //   return
+  // }
 
   isSubmitting.value = true
 
   const result = await login(email.value, password.value)
 
-  if (result.success && result.user) {
-    const startPage = result.user.startPage || '/dashboard'
-    router.push(startPage)
+  if (result.success) {
+    const startPage = result.user?.startPage || result.start_page || '/dashboard'
+    await router.push(startPage)
   } else {
-    error.value = t('login.error.invalid_credentials', result.error)
+    showToast(t('login.error.invalid_credentials', result.error), 'error')
   }
 
   isSubmitting.value = false
@@ -63,8 +77,10 @@ const handleSubmit = async () => {
             id="email"
             v-model="email"
             type="text"
+            :class="{ 'input-error': loginError }"
             :placeholder="t('login.login.placeholder', 'john.doe')"
             :disabled="isSubmitting"
+            @input="loginError = false"
           />
         </div>
         
@@ -73,8 +89,10 @@ const handleSubmit = async () => {
             id="password"
             v-model="password"
             type="password"
+            :class="{ 'input-error': passwordError }"
             :placeholder="t('login.password.placeholder', 'Enter your password')"
             :disabled="isSubmitting"
+            @input="passwordError = false"
           />
         </div>
         
@@ -85,8 +103,6 @@ const handleSubmit = async () => {
           </label>
           <a href="#" class="forgot-link"><T k="login.forgot_password" /></a>
         </div>
-        
-        <div v-if="error" class="error-message">{{ error }}</div>
         
         <button type="submit" class="login-button" :disabled="isSubmitting">
           <span v-if="isSubmitting" class="spinner"></span>
@@ -199,6 +215,11 @@ const handleSubmit = async () => {
   cursor: not-allowed;
 }
 
+.form-group input.input-error {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.1);
+}
+
 .form-options {
   display: flex;
   justify-content: space-between;
@@ -229,15 +250,6 @@ const handleSubmit = async () => {
 
 .forgot-link:hover {
   text-decoration: underline;
-}
-
-.error-message {
-  color: #dc3545;
-  background-color: #f8d7da;
-  padding: 1rem;
-  border-radius: 10px;
-  font-size: 1rem;
-  text-align: center;
 }
 
 .login-button {
