@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCurrentUser, logout } from '../services/authService'
 import { getNavigation } from '../services/navigationService'
-import type { NavItem } from '../types/api'
+import type { MenuItem } from '../types/api'
 import type { UserAuth } from '../types/api'
 
 const props = defineProps<{
@@ -18,7 +18,7 @@ const router = useRouter()
 const user = getCurrentUser()
 
 const isExpanded = ref(false)
-const navItems = ref<NavItem[]>([])
+const navItems = ref<MenuItem[]>([])
 const isLoading = ref(false)
 
 onMounted(async () => {
@@ -49,6 +49,14 @@ function handleLogout() {
 
 function toggleMenu() {
   isExpanded.value = !isExpanded.value
+}
+
+function iconSrc(icon: string): string {
+  return `/icons/${icon}.svg`
+}
+
+function label(item: MenuItem): string {
+  return item.title_key?.split('.').pop() || item.code
 }
 
 function getInitials(name: string): string {
@@ -90,15 +98,15 @@ function getInitials(name: string): string {
       <template v-else>
         <button
           v-for="item in navItems"
-          :key="item.id"
+          :key="item.code"
           class="nav-item"
-          :class="[{ active: props.currentRoute === item.link }, isExpanded ? 'nav-item-full': 'nav-item-collapsed']"
-          @click="handleNavigate(item.link)"
+          :class="[{ active: props.currentRoute === item.path }, isExpanded ? 'nav-item-full': 'nav-item-collapsed']"
+          @click="handleNavigate(item.path)"
         >
           <div class="nav-icon">
-            <img :src="item.iconUrl" :alt="item.name" />
+            <img :src="iconSrc(item.icon)" :alt="label(item)" />
           </div>
-          <span v-if="isExpanded" class="nav-label">{{ item.name }}</span>
+          <span v-if="isExpanded" class="nav-label">{{ label(item) }}</span>
         </button>
       </template>
     </nav>

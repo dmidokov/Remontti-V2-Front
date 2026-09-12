@@ -1,45 +1,54 @@
 import apiClient from '../api/client'
 import { mockApiClient } from '../api/mockApiClient'
-import { syncStore } from '../db'
+import { seedStore } from '../db'
 import { USE_MOCK } from '../config'
-import type { NavItem } from '../types/api'
+import type { MenuItem } from '../types/api'
 
-const INITIAL_NAV_ITEMS: NavItem[] = [
+const INITIAL_MENU_ITEMS: MenuItem[] = [
   {
-    id: 1,
-    name: 'Dashboard',
-    link: '/dashboard',
-    iconUrl: '/icons/dashboard.svg',
+    code: 'dashboard',
+    parent_code: null,
+    title_key: 'menu.dashboard',
+    path: '/dashboard',
+    icon: 'dashboard',
+    sort_order: 10,
   },
   {
-    id: 2,
-    name: 'Branches',
-    link: '/branches',
-    iconUrl: '/icons/branches.svg',
+    code: 'branches',
+    parent_code: null,
+    title_key: 'menu.branches',
+    path: '/branches',
+    icon: 'branches',
+    sort_order: 20,
   },
   {
-    id: 3,
-    name: 'Users',
-    link: '/users',
-    iconUrl: '/icons/users.svg',
+    code: 'users',
+    parent_code: null,
+    title_key: 'menu.users',
+    path: '/users',
+    icon: 'users',
+    sort_order: 30,
   },
   {
-    id: 4,
-    name: 'Management',
-    link: '/management',
-    iconUrl: '/icons/management.svg',
+    code: 'management',
+    parent_code: null,
+    title_key: 'menu.management',
+    path: '/management',
+    icon: 'management',
+    sort_order: 40,
   },
 ]
 
 export async function seedNavigation(): Promise<void> {
-  await syncStore('navigation', INITIAL_NAV_ITEMS)
+  await seedStore('navigation', INITIAL_MENU_ITEMS, 'code')
 }
 
-export async function getNavigation(): Promise<NavItem[]> {
+export async function getNavigation(): Promise<MenuItem[]> {
   try {
-    return USE_MOCK
+    const response = USE_MOCK
       ? await mockApiClient.getNavigation()
-      : await apiClient.getNavigation()
+      : await apiClient.getMenu()
+    return response.items
   } catch (error) {
     console.error('Failed to fetch navigation:', error)
     throw error

@@ -1,5 +1,5 @@
 const DB_NAME = 'remontti-mock-db'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -11,8 +11,12 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('users')) {
         db.createObjectStore('users', { keyPath: 'id', autoIncrement: true })
       }
+      // Миграция: навигация теперь хранится по ключу code (новая схема меню)
+      if (db.objectStoreNames.contains('navigation')) {
+        db.deleteObjectStore('navigation')
+      }
       if (!db.objectStoreNames.contains('navigation')) {
-        db.createObjectStore('navigation', { keyPath: 'id' })
+        db.createObjectStore('navigation', { keyPath: 'code' })
       }
       if (!db.objectStoreNames.contains('auth')) {
         db.createObjectStore('auth', { keyPath: 'key' })

@@ -6,7 +6,8 @@ import type {
   LogoutResponse,
   TranslationResponse,
   GetBranchesResponse,
-  NavItem,
+  GetMenuResponse,
+  MenuItem,
   Branch,
   User,
   UserAuth,
@@ -128,9 +129,10 @@ export class MockApiClient {
     return { success: true, branches: MOCK_BRANCHES }
   }
 
-  async getNavigation(): Promise<NavItem[]> {
+  async getNavigation(): Promise<GetMenuResponse> {
     await delay(300)
-    return getAll<NavItem>('navigation')
+    const items = await getAll<MenuItem>('navigation')
+    return { domain: `${getCurrentHost()}.remontti.site`, items }
   }
 }
 

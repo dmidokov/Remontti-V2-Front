@@ -85,11 +85,18 @@ export interface GetBranchesResponse {
 }
 
 // Navigation types
-export interface NavItem {
-  id: number
-  name: string
-  link: string
-  iconUrl: string
+export interface MenuItem {
+  code: string
+  parent_code?: string | null
+  title_key: string
+  path: string
+  icon: string
+  sort_order: number
+}
+
+export interface GetMenuResponse {
+  domain: string
+  items: MenuItem[]
 }
 
 // Management card types
