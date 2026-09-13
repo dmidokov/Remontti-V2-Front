@@ -15,6 +15,32 @@ export interface UserAuth extends User {
   password?: never
 }
 
+// Backend user (GET/POST /v1/users)
+export interface ApiUser {
+  id: number
+  login: string
+  domain: string
+  creator: number | null
+  created_at: string
+  roles: string[]
+  direct_permissions: string[]
+}
+
+export interface GetUsersResponse {
+  items: ApiUser[]
+  permissions: string[]
+}
+
+export interface CreateUserRequest {
+  login: string
+  password: string
+}
+
+export interface UpdateUserRequest {
+  login: string
+  password: string
+}
+
 // API Request types
 export interface LoginRequest {
   login: string

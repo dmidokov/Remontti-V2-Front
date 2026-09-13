@@ -3,27 +3,23 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import SidebarMenu from '../components/SidebarMenu.vue'
 import { getUsers, createUser, updateUser, deleteUser } from '../services/userService'
-import type { User } from '../types/api'
+import { showToast } from '../composables/useToast'
+import type { ApiUser } from '../types/api'
 
 const route = useRoute()
 
-const users = ref<User[]>([])
+const users = ref<ApiUser[]>([])
+const permissions = ref<string[]>([])
 const searchQuery = ref('')
 const isLoading = ref(false)
 const error = ref('')
 const showModal = ref(false)
-const editingUser = ref<User | null>(null)
+const editingUser = ref<ApiUser | null>(null)
 const isSubmitting = ref(false)
 
 const formData = ref({
   login: '',
-  email: '',
-  name: '',
-  role: 'user' as User['role'],
-  startPage: '/dashboard',
-  avatarUrl: '',
-  host: 'work',
-  settings_right: 0,
+  password: '',
 })
 
 const formErrors = ref<Record<string, string>>({})
@@ -32,11 +28,17 @@ onMounted(() => {
   loadUsers()
 })
 
+function hasPermission(perm: string): boolean {
+  return permissions.value.includes(perm)
+}
+
 async function loadUsers() {
   isLoading.value = true
   error.value = ''
   try {
-    users.value = await getUsers()
+    const response = await getUsers()
+    users.value = response.items
+    permissions.value = response.permissions
   } catch (e) {
     error.value = 'Failed to load users'
     console.error(e)
@@ -47,32 +49,14 @@ async function loadUsers() {
 
 function openAddModal() {
   editingUser.value = null
-  formData.value = {
-    login: '',
-    email: '',
-    name: '',
-    role: 'user',
-    startPage: '/dashboard',
-    avatarUrl: '',
-    host: 'work',
-    settings_right: 0,
-  }
+  formData.value = { login: '', password: '' }
   formErrors.value = {}
   showModal.value = true
 }
 
-function openEditModal(user: User) {
+function openEditModal(user: ApiUser) {
   editingUser.value = user
-  formData.value = {
-    login: user.login,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    startPage: user.startPage || '/dashboard',
-    avatarUrl: user.avatarUrl || '',
-    host: user.host || 'work',
-    settings_right: user.settings_right ?? 0,
-  }
+  formData.value = { login: user.login, password: '' }
   formErrors.value = {}
   showModal.value = true
 }
@@ -80,18 +64,6 @@ function openEditModal(user: User) {
 function closeModal() {
   showModal.value = false
   editingUser.value = null
-}
-
-const bitOptions = [
-  { value: 0b00001, label: 'Пользователи' },
-  { value: 0b00010, label: 'Настройки' },
-  { value: 0b00100, label: 'Роли' },
-  { value: 0b01000, label: 'Безопасность' },
-  { value: 0b10000, label: 'Бэкапы' },
-]
-
-function toggleBit(bit: number) {
-  formData.value.settings_right ^= bit
 }
 
 function transliterate(text: string): string {
@@ -112,25 +84,24 @@ function transliterate(text: string): string {
     .replace(/\.{2,}/g, '.')
 }
 
-function getMainDomain(): string {
-  return window.location.hostname.split('.').slice(-2).join('.')
-}
-
-function onNameInput() {
-  if (editingUser.value) return
-  formData.value.login = transliterate(formData.value.name)
-  formData.value.email = formData.value.login
-    ? `${formData.value.login}@${getMainDomain()}`
-    : ''
+function onLoginInput() {
+  formErrors.value.login = ''
 }
 
 function validateForm(): boolean {
   formErrors.value = {}
-  if (!formData.value.login.trim()) formErrors.value.login = 'Login is required'
-  if (!formData.value.email.trim()) formErrors.value.email = 'Email is required'
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.value.email)) formErrors.value.email = 'Invalid email format'
-  if (!formData.value.name.trim()) formErrors.value.name = 'Name is required'
-  return Object.keys(formErrors.value).length === 0
+
+  if (!formData.value.login.trim()) {
+    formErrors.value.login = 'Login is required'
+    return false
+  }
+
+  if (!formData.value.password.trim()) {
+    formErrors.value.password = 'Password is required'
+    return false
+  }
+
+  return true
 }
 
 async function handleSubmit() {
@@ -139,79 +110,52 @@ async function handleSubmit() {
   isSubmitting.value = true
   try {
     if (editingUser.value) {
-      await updateUser({
-        id: editingUser.value.id!,
-        login: formData.value.login,
-        email: formData.value.email,
-        name: formData.value.name,
-        role: formData.value.role,
-        startPage: formData.value.startPage,
-        avatarUrl: formData.value.avatarUrl || undefined,
-        host: formData.value.host,
-        settings_right: formData.value.settings_right,
-      })
+      await updateUser(editingUser.value.id, { login: editingUser.value.login, password: formData.value.password })
+      showToast(`User "${editingUser.value.login}" updated`, 'success')
     } else {
-      await createUser({
-        login: formData.value.login,
-        email: formData.value.email,
-        name: formData.value.name,
-        role: formData.value.role,
-        startPage: formData.value.startPage,
-        avatarUrl: formData.value.avatarUrl || undefined,
-        host: formData.value.host,
-        settings_right: formData.value.settings_right,
-      })
+      await createUser({ login: formData.value.login, password: formData.value.password })
+      showToast(`User "${formData.value.login}" created`, 'success')
     }
     await loadUsers()
     closeModal()
   } catch (e) {
-    const err = e as Error
-    if (err.message?.includes('UNIQUE') || err.message?.includes('constraint')) {
-      formErrors.value.login = 'Login already exists'
-    } else {
-      error.value = 'Failed to save user'
-      console.error(e)
-    }
+    const msg = e instanceof Error ? e.message : 'Failed to save user'
+    showToast(msg, 'error')
+    console.error(e)
   } finally {
     isSubmitting.value = false
   }
 }
 
-async function handleDelete(user: User) {
-  if (!confirm(`Delete user "${user.name}"?`)) return
+async function handleDelete(user: ApiUser) {
+  if (!confirm(`Delete user "${user.login}"?`)) return
   try {
-    await deleteUser(user.id!)
+    await deleteUser(user.id)
+    showToast(`User "${user.login}" deleted`, 'success')
     await loadUsers()
   } catch (e) {
-    error.value = 'Failed to delete user'
+    showToast('Failed to delete user', 'error')
     console.error(e)
   }
 }
 
-const ROLE_LABELS: Record<User['role'], string> = {
-  admin: 'Admin',
-  user: 'User',
-  manager: 'Manager',
-  employee: 'Employee',
+function formatLogin(login: string): string {
+  return transliterate(login)
+}
+
+function getInitials(login: string): string {
+  return login.split('.')[0]?.toUpperCase().slice(0, 2) || login.slice(0, 2).toUpperCase()
 }
 
 const filteredUsers = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!q) return users.value
   return users.value.filter(user =>
-    user.name.toLowerCase().includes(q) ||
     user.login.toLowerCase().includes(q) ||
-    user.host?.toLowerCase().includes(q) ||
-    ROLE_LABELS[user.role].toLowerCase().includes(q),
+    user.domain.toLowerCase().includes(q) ||
+    user.roles.some(r => r.toLowerCase().includes(q)),
   )
 })
-
-const ROLE_COLORS: Record<User['role'], string> = {
-  admin: '#dc3545',
-  user: '#667eea',
-  manager: '#28a745',
-  employee: '#ffc107',
-}
 </script>
 
 <template>
@@ -224,7 +168,7 @@ const ROLE_COLORS: Record<User['role'], string> = {
           <h1>Users</h1>
           <p class="subtitle">Manage system users</p>
         </div>
-        <button class="add-btn" @click="openAddModal">
+        <button v-if="hasPermission('users.create')" class="add-btn" @click="openAddModal">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -237,87 +181,58 @@ const ROLE_COLORS: Record<User['role'], string> = {
 
       <div v-if="isLoading" class="loading">Loading users...</div>
 
-      <!-- TODO: убрать табличное представление позднее -->
-      <!--
-      <div v-else class="users-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Login</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Host</th>
-              <th>Rights</th>
-              <th>Start Page</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="user in users" :key="user.id">
-              <td class="name-cell">
-                <div class="user-avatar-small">
-                  {{ user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) }}
-                </div>
-                {{ user.name }}
-              </td>
-              <td><code>{{ user.login }}</code></td>
-              <td>{{ user.email }}</td>
-              <td>
-                <span class="role-badge" :style="{ background: ROLE_COLORS[user.role] + '22', color: ROLE_COLORS[user.role] }">
-                  {{ ROLE_LABELS[user.role] }}
-                </span>
-              </td>
-              <td><code>{{ user.host || '—' }}</code></td>
-              <td><code>{{ user.settings_right?.toString(2).padStart(5, '0') || '00000' }}</code></td>
-              <td><code>{{ user.startPage || '/dashboard' }}</code></td>
-              <td class="actions-cell">
-                <button class="action-btn edit-btn" @click="openEditModal(user)">Edit</button>
-                <button class="action-btn delete-btn" @click="handleDelete(user)">Delete</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      -->
-
       <div class="users-cards-block">
         <div class="search-row">
           <input
             v-model="searchQuery"
             type="text"
             class="search-input"
-            placeholder="Поиск по имени, логину, роли или хосту..."
+            placeholder="Поиск по логину, домену или роли..."
           />
         </div>
+
         <div class="users-cards">
           <div v-for="user in filteredUsers" :key="user.id" class="user-card">
             <div class="user-card-header">
-              <div class="user-avatar-large">
-                {{ user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) }}
-              </div>
+              <div class="user-avatar-large">{{ getInitials(user.login) }}</div>
               <div class="user-card-name">
-                <h3>{{ user.name }}</h3>
-                <span class="role-badge" :style="{ background: ROLE_COLORS[user.role] + '22', color: ROLE_COLORS[user.role] }">
-                  {{ ROLE_LABELS[user.role] }}
-                </span>
+                <h3>{{ user.login }}</h3>
               </div>
             </div>
+
             <div class="user-card-meta">
-              <div><span>Login:</span> <span class="val">{{ user.login }}</span></div>
-              <div><span>Email:</span> <span class="val">{{ user.email }}</span></div>
-              <div><span>Host:</span> <span class="val">{{ user.host || '—' }}</span></div>
-              <div><span>Rights:</span> <span class="val">{{ user.settings_right?.toString(2).padStart(5, '0') || '00000' }}</span></div>
-              <div><span>Start page:</span> <span class="val">{{ user.startPage || '/dashboard' }}</span></div>
+              <div><span>Domain:</span> <span class="val">{{ user.domain }}</span></div>
+              <div><span>Created:</span> <span class="val">{{ new Date(user.created_at).toLocaleDateString() }}</span></div>
+              <div>
+                <span>Roles:</span>
+                <span class="val">{{ user.roles.length ? user.roles.join(', ') : '—' }}</span>
+              </div>
+              <div>
+                <span>Permissions:</span>
+                <span class="val">{{ user.direct_permissions.length ? user.direct_permissions.join(', ') : '—' }}</span>
+              </div>
             </div>
+
             <div class="card-actions">
-              <button class="action-btn edit-btn" @click="openEditModal(user)">Edit</button>
-              <button class="action-btn delete-btn" @click="handleDelete(user)">Delete</button>
+              <button
+                v-if="hasPermission('users.update')"
+                class="action-btn edit-btn"
+                @click="openEditModal(user)"
+              >
+                Edit
+              </button>
+              <button
+                v-if="hasPermission('users.delete')"
+                class="action-btn delete-btn"
+                @click="handleDelete(user)"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
 
-        <div v-if="filteredUsers.length === 0" class="no-results">
+        <div v-if="filteredUsers.length === 0 && !isLoading" class="no-results">
           Ничего не найдено по запросу «{{ searchQuery }}»
         </div>
       </div>
@@ -334,69 +249,33 @@ const ROLE_COLORS: Record<User['role'], string> = {
 
           <form class="modal-form" @submit.prevent="handleSubmit">
             <div class="form-group">
-              <label>Name</label>
-              <input v-model="formData.name" @input="onNameInput" type="text" :class="{ error: formErrors.name }" placeholder="Иван Иванов" />
-              <span v-if="formErrors.name" class="field-error">{{ formErrors.name }}</span>
-            </div>
-
-            <div class="form-group">
               <label>Login</label>
-              <input v-model="formData.login" type="text" :class="{ error: formErrors.login }" placeholder="ivan.ivanov" />
+              <input
+                v-model="formData.login"
+                type="text"
+                :class="{ error: formErrors.login }"
+                :readonly="!!editingUser"
+                placeholder="ivan.ivanov"
+                @input="onLoginInput"
+              />
               <span v-if="formErrors.login" class="field-error">{{ formErrors.login }}</span>
             </div>
 
             <div class="form-group">
-              <label>Email</label>
-              <input v-model="formData.email" type="email" :class="{ error: formErrors.email }" placeholder="john@company.com" />
-              <span v-if="formErrors.email" class="field-error">{{ formErrors.email }}</span>
-            </div>
-
-            <div class="form-group">
-              <label>Role</label>
-              <select v-model="formData.role">
-                <option v-for="role in ['admin', 'user', 'manager', 'employee']" :key="role" :value="role">
-                  {{ ROLE_LABELS[role as User['role']] }}
-                </option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>Start Page</label>
-              <select v-model="formData.startPage">
-                <option value="/dashboard">Dashboard</option>
-                <option value="/branches">Branches</option>
-                <option value="/management">Management</option>
-                <option value="/users">Users</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>Host (поддомен)</label>
-              <select v-model="formData.host">
-                <option value="work">work</option>
-                <option value="control">control</option>
-              </select>
-            </div>
-
-            <div class="form-group form-group-full">
-              <label>Права (битовая маска)</label>
-              <div class="bits-row">
-                <label v-for="bit in bitOptions" :key="bit.value" class="bit-check">
-                  <input type="checkbox" :checked="!!(formData.settings_right & bit.value)" @change="toggleBit(bit.value)" />
-                  <span>{{ bit.label }}</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="form-group form-group-full">
-              <label>Avatar URL (optional)</label>
-              <input v-model="formData.avatarUrl" type="text" placeholder="/avatars/user.png" />
+              <label>{{ editingUser ? 'New Password' : 'Password' }}</label>
+              <input
+                v-model="formData.password"
+                type="password"
+                :class="{ error: formErrors.password }"
+                placeholder="password"
+              />
+              <span v-if="formErrors.password" class="field-error">{{ formErrors.password }}</span>
             </div>
 
             <div class="modal-actions">
               <button type="button" class="btn-cancel" @click="closeModal">Cancel</button>
               <button type="submit" class="btn-submit" :disabled="isSubmitting">
-                {{ isSubmitting ? 'Saving...' : (editingUser ? 'Save' : 'Create') }}
+                {{ isSubmitting ? 'Saving...' : editingUser ? 'Save' : 'Create' }}
               </button>
             </div>
           </form>
@@ -475,65 +354,6 @@ const ROLE_COLORS: Record<User['role'], string> = {
   color: #666;
 }
 
-.users-table {
-  background: white;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th {
-  text-align: left;
-  padding: 1rem 1.25rem;
-  background: #f8f9fa;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-td {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 0.95rem;
-  color: #333;
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-tr:hover td {
-  background: #f8f9fa;
-}
-
-.name-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.user-avatar-small {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 0.7rem;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
 .users-cards-block {
   margin-top: 1.5rem;
 }
@@ -559,16 +379,9 @@ tr:hover td {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.cards-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin: 0 0 1rem 0;
-}
-
 .users-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
 }
 
@@ -618,23 +431,12 @@ tr:hover td {
   flex-shrink: 0;
 }
 
-.user-card-name {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.user-card h3 {
+.user-card-name h3 {
   font-size: 1.15rem;
   font-weight: 600;
   color: #1a1a2e;
   margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-all;
 }
 
 .user-card-meta {
@@ -650,6 +452,7 @@ tr:hover td {
 .user-card-meta div {
   display: flex;
   align-items: baseline;
+  gap: 0.5rem;
 }
 
 .user-card-meta div span:first-child {
@@ -673,28 +476,7 @@ tr:hover td {
 .card-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
   margin-top: auto;
-}
-
-code {
-  background: #f0f0f0;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-}
-
-.role-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.actions-cell {
-  display: flex;
-  gap: 0.5rem;
 }
 
 .action-btn {
@@ -707,15 +489,6 @@ code {
   font-weight: 500;
 }
 
-.edit-btn {
-  background: #667eea;
-  color: white;
-}
-
-.edit-btn:hover {
-  background: #5a6fd6;
-}
-
 .delete-btn {
   background: #dc3545;
   color: white;
@@ -723,6 +496,19 @@ code {
 
 .delete-btn:hover {
   background: #c82333;
+}
+
+.edit-btn {
+  background: #667eea;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #5566d6;
+}
+
+.action-btn + .action-btn {
+  margin-left: 0.5rem;
 }
 
 /* Modal */
@@ -740,7 +526,7 @@ code {
   background: white;
   border-radius: 16px;
   width: 100%;
-  max-width: 680px;
+  max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -776,21 +562,15 @@ code {
 
 .modal-form {
   padding: 1.5rem 2rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem 1.5rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  min-width: 0;
-}
-
-.form-group-full {
-  grid-column: 1 / -1;
 }
 
 .form-group label {
@@ -799,8 +579,7 @@ code {
   color: #555;
 }
 
-.form-group input,
-.form-group select {
+.form-group input {
   padding: 0.75rem;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
@@ -811,8 +590,7 @@ code {
   transition: border-color 0.2s;
 }
 
-.form-group input:focus,
-.form-group select:focus {
+.form-group input:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -822,31 +600,15 @@ code {
   border-color: #dc3545;
 }
 
+.form-group input[readonly] {
+  background: #f0f0f0;
+  color: #666;
+  cursor: not-allowed;
+}
+
 .field-error {
   color: #dc3545;
   font-size: 0.8rem;
-}
-
-.bits-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.bit-check {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-  user-select: none;
-}
-
-.bit-check input[type="checkbox"] {
-  accent-color: #667eea;
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
 }
 
 .modal-actions {

@@ -1,4 +1,4 @@
-import { kvGet, getAll } from '../db'
+import { kvGet, kvSet, getAll, add, remove } from '../db'
 import { getCurrentHost } from '../utils/host'
 import type {
   LoginRequest,
@@ -7,10 +7,14 @@ import type {
   TranslationResponse,
   GetBranchesResponse,
   GetMenuResponse,
+  GetUsersResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
   MenuItem,
   Branch,
   User,
   UserAuth,
+  ApiUser,
 } from '../types/api'
 
 function delay(ms: number): Promise<void> {
@@ -133,6 +137,74 @@ export class MockApiClient {
     await delay(300)
     const items = await getAll<MenuItem>('navigation')
     return { domain: `${getCurrentHost()}.remontti.site`, items }
+  }
+
+  private toApiUser(user: User & { id?: number }): ApiUser {
+    return {
+      id: user.id!,
+      login: user.login,
+      domain: user.host && user.host !== 'localhost'
+        ? `${user.host}.remontti.site`
+        : `${getCurrentHost()}.remontti.site`,
+      creator: null,
+      created_at: new Date().toISOString(),
+      roles: [user.role],
+      direct_permissions: [],
+    }
+  }
+
+  async getUsers(): Promise<GetUsersResponse> {
+    await delay(300)
+    const users = await getAll<User>('users')
+    return {
+      items: users.map(u => this.toApiUser(u)),
+      permissions: ['users.view', 'users.create', 'users.update', 'users.delete'],
+    }
+  }
+
+  async createUser(data: CreateUserRequest): Promise<ApiUser> {
+    await delay(500)
+    const existing = await getAll<User>('users')
+    if (existing.some(u => u.login === data.login)) {
+      throw new Error('Логин уже существует')
+    }
+
+    const user: User = {
+      login: data.login,
+      email: `${data.login}@${getCurrentHost()}.remontti.site`,
+      name: data.login,
+      role: 'user',
+      startPage: '/dashboard',
+      host: getCurrentHost(),
+      settings_right: 0,
+    }
+    const id = await add<User>('users', user)
+
+    // Добавляем пароль в credentials, чтобы mock-логин работал
+    const credentials = (await kvGet<Record<string, string>>('credentials')) || {}
+    await kvSet('credentials', { ...credentials, [data.login]: data.password })
+
+    return this.toApiUser({ ...user, id })
+  }
+
+  async updateUser(id: number, data: UpdateUserRequest): Promise<ApiUser> {
+    await delay(500)
+    const users = await getAll<User>('users')
+    const user = users.find(u => u.id === id)
+    if (!user) {
+      throw new Error(`User ${id} not found`)
+    }
+
+    const credentials = (await kvGet<Record<string, string>>('credentials')) || {}
+    await kvSet('credentials', { ...credentials, [user.login]: data.password })
+
+    return this.toApiUser(user)
+  }
+
+  async deleteUser(id: number): Promise<{ success: boolean }> {
+    await delay(300)
+    await remove('users', id)
+    return { success: true }
   }
 }
 

@@ -6,6 +6,10 @@ import type {
   ApiError,
   GetBranchesResponse,
   GetMenuResponse,
+  GetUsersResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
+  ApiUser,
 } from '../types/api'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -69,7 +73,7 @@ class ApiClient {
 
   // Auth endpoints
   async login(data: LoginRequest): Promise<LoginResponse> {
-    const response = await this.request<LoginResponse>('/auth/login', {
+    const response = await this.request<LoginResponse>('/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -84,7 +88,7 @@ class ApiClient {
 
   async logout(): Promise<LogoutResponse> {
     try {
-      const response = await this.request<LogoutResponse>('/auth/logout', {
+      const response = await this.request<LogoutResponse>('/v1/auth/logout', {
         method: 'POST',
       })
       this.setToken(null)
@@ -98,17 +102,42 @@ class ApiClient {
 
   // Translations endpoints
   async getTranslations(page: string): Promise<GetTranslationsResponse> {
-    return this.request<GetTranslationsResponse>(`/translations/${page}`)
+    return this.request<GetTranslationsResponse>(`/v1/translations/${page}`)
   }
 
   // Branch endpoints
   async getBranches(): Promise<GetBranchesResponse> {
-    return this.request<GetBranchesResponse>('/company/branches/get')
+    return this.request<GetBranchesResponse>('/v1/company/branches/get')
   }
 
-  // Menu endpoint
+// Menu endpoint
   async getMenu(): Promise<GetMenuResponse> {
-    return this.request<GetMenuResponse>('/menu')
+    return this.request<GetMenuResponse>('/v1/menu')
+  }
+
+  // Users endpoints
+  async getUsers(): Promise<GetUsersResponse> {
+    return this.request<GetUsersResponse>('/v1/users')
+  }
+
+  async createUser(data: CreateUserRequest): Promise<ApiUser> {
+    return this.request<ApiUser>('/v1/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateUser(id: number, data: UpdateUserRequest): Promise<ApiUser> {
+    return this.request<ApiUser>(`/v1/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteUser(id: number): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/users/${id}`, {
+      method: 'DELETE',
+    })
   }
 }
 

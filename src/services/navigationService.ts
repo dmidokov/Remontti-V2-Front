@@ -26,7 +26,7 @@ const INITIAL_MENU_ITEMS: MenuItem[] = [
     parent_code: null,
     title_key: 'menu.users',
     path: '/users',
-    icon: 'users',
+    icon: 'user-cog',
     sort_order: 30,
   },
   {

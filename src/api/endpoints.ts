@@ -1,9 +1,9 @@
 export const ENDPOINTS = {
   AUTH: {
-    LOGIN: '/auth/login',
-    LOGOUT: '/auth/logout',
+    LOGIN: '/v1/auth/login',
+    LOGOUT: '/v1/auth/logout',
   },
   TRANSLATIONS: {
-    GET: (page: string) => `/translations/${page}`,
+    GET: (page: string) => `/v1/translations/${page}`,
   },
 } as const
