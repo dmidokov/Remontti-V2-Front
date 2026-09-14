@@ -1,3 +1,4 @@
+import { showToast } from '../composables/useToast'
 import type {
   LoginRequest,
   LoginResponse,
@@ -18,6 +19,8 @@ import type {
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 
 class ApiClient {
+  private sessionExpiredHandled = false
+
   private getToken(): string | null {
     return localStorage.getItem('auth_token')
   }
@@ -27,6 +30,23 @@ class ApiClient {
       localStorage.setItem('auth_token', token)
     } else {
       localStorage.removeItem('auth_token')
+    }
+  }
+
+  /**
+   * Единая точка обработки истёкшей/невалидной сессии:
+   * чистим auth_user + auth_token и редиректим на логин с тостом.
+   */
+  private handleUnauthorized(): void {
+    if (this.sessionExpiredHandled) return
+    this.sessionExpiredHandled = true
+
+    localStorage.removeItem('auth_user')
+    this.setToken(null)
+
+    if (window.location.pathname !== '/') {
+      showToast('Сессия истекла, авторизуйтесь заново', 'error')
+      void import('../router').then(({ default: router }) => router.push('/'))
     }
   }
 
@@ -55,9 +75,10 @@ class ApiClient {
       const response = await fetch(url, config)
 
       if (!response.ok) {
-        // Если токен невалиден (401), очищаем его
-        if (response.status === 401) {
-          this.setToken(null)
+        // 401 на auth/login — это неверный логин/пароль, а не истёкшая сессия
+        const isLoginAttempt = endpoint.includes('/auth/login')
+        if (response.status === 401 && !isLoginAttempt) {
+          this.handleUnauthorized()
         }
 
         const error: ApiError = await response.json().catch(() => ({
@@ -84,6 +105,7 @@ class ApiClient {
     // Сохраняем токен если он есть в ответе
     if (response.token) {
       this.setToken(response.token)
+      this.sessionExpiredHandled = false
     }
     
     return response

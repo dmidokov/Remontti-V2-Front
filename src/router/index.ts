@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated } from '../services/authService'
+import { isAuthenticated, isTokenExpired, clearSession } from '../services/authService'
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
@@ -40,10 +40,16 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
+  // Истёк срок жизни токена (JWT exp) — сбрасываем сессию сразу, без ожидания API
+  const tokenExpired = isTokenExpired()
+  if (tokenExpired) {
+    clearSession()
+  }
+
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  
+
   if (requiresAuth && !isAuthenticated()) {
-    next('/')
+    next(tokenExpired ? { path: '/', query: { session_expired: '1' } } : '/')
   } else if (to.name === 'Login' && isAuthenticated()) {
     next('/dashboard')
   } else {

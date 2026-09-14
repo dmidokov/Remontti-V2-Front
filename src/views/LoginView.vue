@@ -3,10 +3,11 @@ import { ref, onMounted } from 'vue'
 import { useTranslation } from '../composables/useTranslation'
 import { showToast } from '../composables/useToast'
 import { login } from '../services/authService'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const { loadTranslations, t, isLoading, isLoaded } = useTranslation()
 const router = useRouter()
+const route = useRoute()
 
 const email = ref('')
 const password = ref('')
@@ -16,6 +17,11 @@ const isSubmitting = ref(false)
 
 onMounted(() => {
   loadTranslations('login')
+
+  if (route.query.session_expired) {
+    showToast('Сессия истекла, авторизуйтесь заново', 'error')
+    router.replace({ path: '/', query: {} })
+  }
 })
 
 function clearFieldErrors(): void {

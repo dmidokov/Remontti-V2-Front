@@ -33,7 +33,7 @@ export async function login(loginValue: string, passwordValue: string): Promise<
 }
 
 export function logout(): void {
-  localStorage.removeItem(STORAGE_KEY)
+  clearSession()
 
   if (USE_MOCK) {
     return
@@ -42,12 +42,28 @@ export function logout(): void {
   apiClient.logout().catch(console.error)
 }
 
+export function clearSession(): void {
+  localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+/** Проверяет срок жизни JWT по полю exp (без обращения к серверу). */
+export function isTokenExpired(): boolean {
+  const token = getToken()
+  if (!token) return false
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    if (typeof payload.exp !== 'number') return false
+    return payload.exp * 1000 < Date.now()
+  } catch (e) {
+    return false
+  }
+}
+
 export function getCurrentUser(): UserAuth | null {
   try {
     const data = localStorage.getItem(STORAGE_KEY)
-    console.log(data)
     if (data) {
-      console.log(data)
       return JSON.parse(data)
     }
   } catch (e) {
@@ -57,7 +73,10 @@ export function getCurrentUser(): UserAuth | null {
 }
 
 export function isAuthenticated(): boolean {
-  return getCurrentUser() !== null
+  if (!getCurrentUser()) return false
+  // Mock-режим сессию по токену не хранит
+  if (USE_MOCK) return true
+  return getToken() !== null
 }
 
 export function getToken(): string | null {
