@@ -7,6 +7,9 @@ import type {
   GetBranchesResponse,
   GetMenuResponse,
   GetUsersResponse,
+  GetTenantsResponse,
+  GetRolesResponse,
+  GetPermissionsResponse,
   CreateUserRequest,
   UpdateUserRequest,
   ApiUser,
@@ -120,6 +123,20 @@ class ApiClient {
     return this.request<GetUsersResponse>('/v1/users')
   }
 
+  async getTenants(): Promise<GetTenantsResponse> {
+    return this.request<GetTenantsResponse>('/v1/tenants')
+  }
+
+  async getRoles(domain?: string): Promise<GetRolesResponse> {
+    const qs = domain ? `?domain=${encodeURIComponent(domain)}` : ''
+    return this.request<GetRolesResponse>(`/v1/roles${qs}`)
+  }
+
+  async getPermissions(domain?: string): Promise<GetPermissionsResponse> {
+    const qs = domain ? `?domain=${encodeURIComponent(domain)}` : ''
+    return this.request<GetPermissionsResponse>(`/v1/permissions${qs}`)
+  }
+
   async createUser(data: CreateUserRequest): Promise<ApiUser> {
     return this.request<ApiUser>('/v1/users', {
       method: 'POST',
@@ -127,10 +144,17 @@ class ApiClient {
     })
   }
 
-  async updateUser(id: number, data: UpdateUserRequest): Promise<ApiUser> {
-    return this.request<ApiUser>(`/v1/users/${id}`, {
-      method: 'PUT',
+  async updateUser(id: number, data: UpdateUserRequest): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/users/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
+    })
+  }
+
+  async changeUserPassword(id: number, password: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/v1/users/${id}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
     })
   }
 

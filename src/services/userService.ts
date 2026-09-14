@@ -2,7 +2,16 @@ import apiClient from '../api/client'
 import { mockApiClient } from '../api/mockApiClient'
 import { kvSet, kvGet, seedStore } from '../db'
 import { USE_MOCK } from '../config'
-import type { ApiUser, GetUsersResponse, CreateUserRequest, UpdateUserRequest, User } from '../types/api'
+import type {
+  ApiUser,
+  GetUsersResponse,
+  GetTenantsResponse,
+  GetRolesResponse,
+  GetPermissionsResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
+  User,
+} from '../types/api'
 
 const INITIAL_USERS: User[] = [
   {
@@ -54,16 +63,44 @@ export async function getUsers(): Promise<GetUsersResponse> {
     : apiClient.getUsers()
 }
 
+export async function getTenants(): Promise<GetTenantsResponse> {
+  return USE_MOCK
+    ? mockApiClient.getTenants()
+    : apiClient.getTenants()
+}
+
 export async function createUser(data: CreateUserRequest): Promise<ApiUser> {
   return USE_MOCK
     ? mockApiClient.createUser(data)
     : apiClient.createUser(data)
 }
 
-export async function updateUser(id: number, data: UpdateUserRequest): Promise<ApiUser> {
+export async function getRoles(domain?: string): Promise<GetRolesResponse> {
   return USE_MOCK
-    ? mockApiClient.updateUser(id, data)
-    : apiClient.updateUser(id, data)
+    ? mockApiClient.getRoles(domain)
+    : apiClient.getRoles(domain)
+}
+
+export async function getPermissions(domain?: string): Promise<GetPermissionsResponse> {
+  return USE_MOCK
+    ? mockApiClient.getPermissions(domain)
+    : apiClient.getPermissions(domain)
+}
+
+export async function updateUser(id: number, data: UpdateUserRequest): Promise<void> {
+  if (USE_MOCK) {
+    await mockApiClient.updateUser(id, data)
+    return
+  }
+  await apiClient.updateUser(id, data)
+}
+
+export async function changeUserPassword(id: number, password: string): Promise<void> {
+  if (USE_MOCK) {
+    await mockApiClient.changeUserPassword(id, password)
+    return
+  }
+  await apiClient.changeUserPassword(id, password)
 }
 
 export async function deleteUser(id: number): Promise<void> {

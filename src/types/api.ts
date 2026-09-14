@@ -9,6 +9,8 @@ export interface User {
   avatarUrl?: string
   host?: string
   settings_right?: number
+  roles?: string[]
+  direct_permissions?: string[]
 }
 
 export interface UserAuth extends User {
@@ -34,11 +36,45 @@ export interface GetUsersResponse {
 export interface CreateUserRequest {
   login: string
   password: string
+  /** Тенант (домен), в который добавляется пользователь. По умолчанию — текущий. */
+  domain?: string
 }
 
+/** Частичное обновление пользователя (PATCH /v1/users/:id) — роли и прямые права. */
 export interface UpdateUserRequest {
-  login: string
-  password: string
+  roles?: string[]
+  /** В запросе поле "permissions", в ответе GET — "direct_permissions". */
+  permissions?: string[]
+}
+
+// Role and permission types
+export interface Role {
+  code: string
+  title_key: string
+}
+
+export interface GetRolesResponse {
+  domain: string
+  items: Role[]
+}
+
+export interface Permission {
+  code: string
+  title_key: string
+}
+
+export interface GetPermissionsResponse {
+  items: Permission[]
+}
+
+// Tenant types
+export interface Tenant {
+  domain: string
+  name: string
+}
+
+export interface GetTenantsResponse {
+  items: Tenant[]
 }
 
 // API Request types

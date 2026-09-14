@@ -2,11 +2,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import SidebarMenu from '../components/SidebarMenu.vue'
-import { getUsers, createUser, updateUser, deleteUser } from '../services/userService'
+import { useTranslation } from '../composables/useTranslation'
+import { getUsers, createUser, updateUser, deleteUser, getTenants, getRoles, getPermissions, changeUserPassword } from '../services/userService'
 import { showToast } from '../composables/useToast'
-import type { ApiUser } from '../types/api'
+import type { ApiUser, Tenant, Role, Permission } from '../types/api'
 
 const route = useRoute()
+const { loadTranslations, t } = useTranslation()
 
 const users = ref<ApiUser[]>([])
 const permissions = ref<string[]>([])
@@ -18,19 +20,33 @@ const editingUser = ref<ApiUser | null>(null)
 const isSubmitting = ref(false)
 
 const formData = ref({
-  login: '',
+  fullName: '',
   password: '',
+  tenant: '',
 })
 
+const tenants = ref<Tenant[]>([])
+const availableRoles = ref<Role[]>([])
+const availablePermissions = ref<Permission[]>([])
+const selectedRoles = ref<string[]>([])
+const selectedPermissions = ref<string[]>([])
+const expandedCategories = ref<Set<string>>(new Set())
+const viewingUser = ref<ApiUser | null>(null)
+const viewedExpanded = ref<Set<string>>(new Set())
 const formErrors = ref<Record<string, string>>({})
 
 onMounted(() => {
+  loadTranslations('users')
   loadUsers()
 })
 
 function hasPermission(perm: string): boolean {
   return permissions.value.includes(perm)
 }
+
+const canSelectTenant = computed(() =>
+  hasPermission('users.create.cross_tenant') || hasPermission('tenants.view'),
+)
 
 async function loadUsers() {
   isLoading.value = true
@@ -40,7 +56,7 @@ async function loadUsers() {
     users.value = response.items
     permissions.value = response.permissions
   } catch (e) {
-    error.value = 'Failed to load users'
+    error.value = t('users.error_load', 'Failed to load users')
     console.error(e)
   } finally {
     isLoading.value = false
@@ -49,17 +65,115 @@ async function loadUsers() {
 
 function openAddModal() {
   editingUser.value = null
-  formData.value = { login: '', password: '' }
+  formData.value = { fullName: '', password: '', tenant: '' }
+  if (canSelectTenant.value) loadTenants()
   formErrors.value = {}
   showModal.value = true
 }
 
 function openEditModal(user: ApiUser) {
   editingUser.value = user
-  formData.value = { login: user.login, password: '' }
+  formData.value = { fullName: '', password: '', tenant: '' }
+  selectedRoles.value = [...user.roles]
+  selectedPermissions.value = [...user.direct_permissions]
   formErrors.value = {}
+  loadUserOptions(user.domain)
   showModal.value = true
 }
+
+async function loadTenants() {
+  if (tenants.value.length > 0) return
+  try {
+    const response = await getTenants()
+    tenants.value = response.items
+  } catch (e) {
+    showToast(t('users.error_failed_tenants', 'Failed to load tenants'), 'error')
+    console.error(e)
+  }
+}
+
+async function loadUserOptions(domain: string) {
+  try {
+    const [rolesRes, permsRes] = await Promise.all([
+      getRoles(domain),
+      getPermissions(domain),
+    ])
+    availableRoles.value = rolesRes.items
+    availablePermissions.value = permsRes.items
+    expandedCategories.value = new Set()
+  } catch (e) {
+    showToast(t('users.error_failed_options', 'Failed to load roles/permissions'), 'error')
+    console.error(e)
+  }
+}
+
+function toggleRole(code: string) {
+  const i = selectedRoles.value.indexOf(code)
+  if (i === -1) {
+    selectedRoles.value.push(code)
+  } else {
+    selectedRoles.value.splice(i, 1)
+  }
+}
+
+function togglePermission(code: string) {
+  const i = selectedPermissions.value.indexOf(code)
+  if (i === -1) {
+    selectedPermissions.value.push(code)
+  } else {
+    selectedPermissions.value.splice(i, 1)
+  }
+}
+
+const groupedPermissions = computed(() => {
+  const map = new Map<string, Permission[]>()
+  for (const perm of availablePermissions.value) {
+    const category = perm.code.split('.')[0] || 'other'
+    if (!map.has(category)) map.set(category, [])
+    map.get(category)!.push(perm)
+  }
+  return Array.from(map, ([category, items]) => ({ category, items }))
+})
+
+function toggleCategory(category: string) {
+  const next = new Set(expandedCategories.value)
+  if (next.has(category)) {
+    next.delete(category)
+  } else {
+    next.add(category)
+  }
+  expandedCategories.value = next
+}
+
+function openViewPermissions(user: ApiUser) {
+  viewingUser.value = user
+  viewedExpanded.value = new Set()
+}
+
+function closeViewPermissions() {
+  viewingUser.value = null
+}
+
+function toggleViewedCategory(category: string) {
+  const next = new Set(viewedExpanded.value)
+  if (next.has(category)) {
+    next.delete(category)
+  } else {
+    next.add(category)
+  }
+  viewedExpanded.value = next
+}
+
+const viewedPermissionGroups = computed(() => {
+  if (!viewingUser.value) return []
+  const map = new Map<string, string[]>()
+  for (const perm of viewingUser.value.direct_permissions) {
+    const category = perm.split('.')[0] || 'other'
+    if (!map.has(category)) map.set(category, [])
+    map.get(category)!.push(perm)
+  }
+  return Array.from(map, ([category, items]) => ({ category, items }))
+})
 
 function closeModal() {
   showModal.value = false
@@ -84,20 +198,41 @@ function transliterate(text: string): string {
     .replace(/\.{2,}/g, '.')
 }
 
-function onLoginInput() {
-  formErrors.value.login = ''
+const generatedLogin = computed(() => {
+  const tokens = formData.value.fullName.trim().split(/\s+/).filter(Boolean)
+  if (tokens.length === 0) return ''
+  const first = transliterate(tokens[0])
+  const last = tokens.length > 1 ? transliterate(tokens[tokens.length - 1]) : ''
+  return [first, last].filter(Boolean).join('.')
+})
+
+function onFieldInput(field: string) {
+  formErrors.value[field] = ''
 }
 
 function validateForm(): boolean {
   formErrors.value = {}
 
-  if (!formData.value.login.trim()) {
-    formErrors.value.login = 'Login is required'
-    return false
+  if (!editingUser.value) {
+    if (!formData.value.fullName.trim()) {
+      formErrors.value.fullName = t('users.error_required_name', 'Введите имя и фамилию')
+      return false
+    }
+
+    if (!generatedLogin.value) {
+      formErrors.value.login = 'Логин не может быть сформирован'
+      return false
+    }
+
+    if (!formData.value.password.trim()) {
+      formErrors.value.password = t('users.error_required_password', 'Password is required')
+      return false
+    }
   }
 
-  if (!formData.value.password.trim()) {
-    formErrors.value.password = 'Password is required'
+  const password = formData.value.password.trim()
+  if (password && password.length < 8) {
+    formErrors.value.password = t('users.password_too_short', 'Пароль должен быть не короче 8 символов')
     return false
   }
 
@@ -110,16 +245,28 @@ async function handleSubmit() {
   isSubmitting.value = true
   try {
     if (editingUser.value) {
-      await updateUser(editingUser.value.id, { login: editingUser.value.login, password: formData.value.password })
-      showToast(`User "${editingUser.value.login}" updated`, 'success')
+      await updateUser(editingUser.value.id, {
+        roles: selectedRoles.value,
+        permissions: selectedPermissions.value,
+      })
+      const password = formData.value.password.trim()
+      if (password) {
+        await changeUserPassword(editingUser.value.id, password)
+      }
+      showToast(`${t('users.toast_updated', 'User updated')} "${editingUser.value.login}"`, 'success')
     } else {
-      await createUser({ login: formData.value.login, password: formData.value.password })
-      showToast(`User "${formData.value.login}" created`, 'success')
+      const login = generatedLogin.value
+      await createUser({
+        login,
+        password: formData.value.password,
+        domain: canSelectTenant.value && formData.value.tenant ? formData.value.tenant : undefined,
+      })
+      showToast(`${t('users.toast_created', 'User created')} "${login}"`, 'success')
     }
     await loadUsers()
     closeModal()
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Failed to save user'
+    const msg = e instanceof Error ? e.message : t('users.error_failed_save', 'Failed to save user')
     showToast(msg, 'error')
     console.error(e)
   } finally {
@@ -128,19 +275,15 @@ async function handleSubmit() {
 }
 
 async function handleDelete(user: ApiUser) {
-  if (!confirm(`Delete user "${user.login}"?`)) return
+  if (!confirm(`${t('users.delete_confirm', 'Delete user')} "${user.login}"?`)) return
   try {
     await deleteUser(user.id)
-    showToast(`User "${user.login}" deleted`, 'success')
+    showToast(`${t('users.toast_deleted', 'User deleted')} "${user.login}"`, 'success')
     await loadUsers()
   } catch (e) {
-    showToast('Failed to delete user', 'error')
+    showToast(t('users.error_failed_delete', 'Failed to delete user'), 'error')
     console.error(e)
   }
-}
-
-function formatLogin(login: string): string {
-  return transliterate(login)
 }
 
 function getInitials(login: string): string {
@@ -165,21 +308,21 @@ const filteredUsers = computed(() => {
     <main class="users-content">
       <div class="users-header">
         <div class="header-left">
-          <h1>Users</h1>
-          <p class="subtitle">Manage system users</p>
+          <h1><T k="users.title" /></h1>
+          <p class="subtitle"><T k="users.subtitle" /></p>
         </div>
         <button v-if="hasPermission('users.create')" class="add-btn" @click="openAddModal">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Add User
+          <T k="users.add" />
         </button>
       </div>
 
       <div v-if="error" class="error-banner">{{ error }}</div>
 
-      <div v-if="isLoading" class="loading">Loading users...</div>
+      <div v-if="isLoading" class="loading"><T k="users.loading" /></div>
 
       <div class="users-cards-block">
         <div class="search-row">
@@ -187,7 +330,7 @@ const filteredUsers = computed(() => {
             v-model="searchQuery"
             type="text"
             class="search-input"
-            placeholder="Поиск по логину, домену или роли..."
+            :placeholder="t('users.search_placeholder', 'Поиск по логину, домену или роли...')"
           />
         </div>
 
@@ -201,15 +344,28 @@ const filteredUsers = computed(() => {
             </div>
 
             <div class="user-card-meta">
-              <div><span>Domain:</span> <span class="val">{{ user.domain }}</span></div>
-              <div><span>Created:</span> <span class="val">{{ new Date(user.created_at).toLocaleDateString() }}</span></div>
               <div>
-                <span>Roles:</span>
-                <span class="val">{{ user.roles.length ? user.roles.join(', ') : '—' }}</span>
+                <span><T k="users.field_domain" />:</span>
+                <span class="val">{{ user.domain }}</span>
               </div>
               <div>
-                <span>Permissions:</span>
-                <span class="val">{{ user.direct_permissions.length ? user.direct_permissions.join(', ') : '—' }}</span>
+                <span><T k="users.field_created" />:</span>
+                <span class="val">{{ new Date(user.created_at).toLocaleDateString() }}</span>
+              </div>
+              <div>
+                <span><T k="users.field_roles" />:</span>
+                <span class="val">{{ user.roles.length ? user.roles.join(', ') : '—' }}</span>
+              </div>
+              <div class="meta-permissions">
+                <span><T k="users.field_permissions" />:</span>
+                <button
+                  v-if="user.direct_permissions.length"
+                  class="view-perms-btn"
+                  @click="openViewPermissions(user)"
+                >
+                  {{ t('users.view_permissions_btn', 'Показать') }} ({{ user.direct_permissions.length }})
+                </button>
+                <span v-else class="val">—</span>
               </div>
             </div>
 
@@ -219,21 +375,21 @@ const filteredUsers = computed(() => {
                 class="action-btn edit-btn"
                 @click="openEditModal(user)"
               >
-                Edit
+                <T k="users.edit" />
               </button>
               <button
                 v-if="hasPermission('users.delete')"
                 class="action-btn delete-btn"
                 @click="handleDelete(user)"
               >
-                Delete
+                <T k="users.delete" />
               </button>
             </div>
           </div>
         </div>
 
         <div v-if="filteredUsers.length === 0 && !isLoading" class="no-results">
-          Ничего не найдено по запросу «{{ searchQuery }}»
+          {{ t('users.no_results', 'Ничего не найдено по запросу') }} «{{ searchQuery }}»
         </div>
       </div>
     </main>
@@ -243,42 +399,169 @@ const filteredUsers = computed(() => {
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal">
           <div class="modal-header">
-            <h2>{{ editingUser ? 'Edit User' : 'Add User' }}</h2>
+            <h2>{{ editingUser ? t('users.edit_title', 'Edit User') : t('users.add_title', 'Add User') }}</h2>
             <button class="close-btn" @click="closeModal">&times;</button>
           </div>
 
           <form class="modal-form" @submit.prevent="handleSubmit">
-            <div class="form-group">
-              <label>Login</label>
+            <span v-if="editingUser" class="form-group">
+              <label><T k="users.login" /></label>
               <input
-                v-model="formData.login"
+                :value="editingUser.login"
                 type="text"
-                :class="{ error: formErrors.login }"
-                :readonly="!!editingUser"
-                placeholder="ivan.ivanov"
-                @input="onLoginInput"
+                readonly
+                class="login-readonly"
               />
-              <span v-if="formErrors.login" class="field-error">{{ formErrors.login }}</span>
-            </div>
+            </span>
+
+            <template v-if="!editingUser">
+              <div class="form-group">
+                <label><T k="users.name" /></label>
+                <input
+                  v-model="formData.fullName"
+                  type="text"
+                  :class="{ error: formErrors.fullName }"
+                  :placeholder="t('users.name_placeholder', 'Иван Иванов')"
+                  @input="onFieldInput('fullName')"
+                />
+                <span v-if="formErrors.fullName" class="field-error">{{ formErrors.fullName }}</span>
+              </div>
+
+              <div class="form-group">
+                <label><T k="users.login_auto" /></label>
+                <input
+                  :value="generatedLogin"
+                  type="text"
+                  readonly
+                  class="login-readonly"
+                  placeholder="ivan.ivanov"
+                />
+                <span v-if="formErrors.login" class="field-error">{{ formErrors.login }}</span>
+              </div>
+            </template>
+
+            <template v-if="editingUser">
+              <div class="edit-section">
+                <div class="section-title"><T k="users.roles" /></div>
+                <div v-if="availableRoles.length === 0" class="section-empty">{{ t('users.no_items', 'Нет доступных ролей') }}</div>
+                <div v-else class="checkbox-grid">
+                  <label
+                    v-for="role in availableRoles"
+                    :key="role.code"
+                    class="checkbox-chip"
+                    :class="{ checked: selectedRoles.includes(role.code) }"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="selectedRoles.includes(role.code)"
+                      @change="toggleRole(role.code)"
+                    />
+                    <span>{{ t(role.title_key, role.code) }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="edit-section">
+                <div class="section-title"><T k="users.permissions" /></div>
+                <div v-if="availablePermissions.length === 0" class="section-empty">{{ t('users.no_items', 'Нет доступных прав') }}</div>
+                <div v-else class="permission-groups">
+                  <div v-for="group in groupedPermissions" :key="group.category" class="permission-group">
+                    <button
+                      type="button"
+                      class="permission-group-title"
+                      :class="{ collapsed: !expandedCategories.has(group.category) }"
+                      @click="toggleCategory(group.category)"
+                    >
+                      <svg :class="{ rotate: !expandedCategories.has(group.category) }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                      <span>{{ t(`permissions.category.${group.category}`, group.category) }}</span>
+                      <span class="count">{{ group.items.length }}</span>
+                    </button>
+                    <div v-if="expandedCategories.has(group.category)" class="checkbox-grid">
+                      <label
+                        v-for="perm in group.items"
+                        :key="perm.code"
+                        class="checkbox-chip"
+                        :class="{ checked: selectedPermissions.includes(perm.code) }"
+                      >
+                        <input
+                          type="checkbox"
+                          :checked="selectedPermissions.includes(perm.code)"
+                          @change="togglePermission(perm.code)"
+                        />
+                        <span>{{ t(perm.title_key, perm.code) }}</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
 
             <div class="form-group">
-              <label>{{ editingUser ? 'New Password' : 'Password' }}</label>
+              <label>{{ editingUser ? t('users.new_password', 'New Password') : t('users.password', 'Password') }}</label>
               <input
                 v-model="formData.password"
                 type="password"
                 :class="{ error: formErrors.password }"
-                placeholder="password"
+                :placeholder="editingUser ? t('users.password_placeholder_edit', 'Оставьте пустым, чтобы не менять') : 'password'"
               />
               <span v-if="formErrors.password" class="field-error">{{ formErrors.password }}</span>
             </div>
 
+            <div class="form-group" v-if="!editingUser && canSelectTenant">
+              <label><T k="users.tenant" /></label>
+              <select v-model="formData.tenant" class="tenant-select">
+                <option value=""><T k="users.tenant_current" /></option>
+                <option v-for="tenant in tenants" :key="tenant.domain" :value="tenant.domain">
+                  {{ tenant.name }}
+                </option>
+              </select>
+            </div>
+
             <div class="modal-actions">
-              <button type="button" class="btn-cancel" @click="closeModal">Cancel</button>
+              <button type="button" class="btn-cancel" @click="closeModal"><T k="users.cancel" /></button>
               <button type="submit" class="btn-submit" :disabled="isSubmitting">
-                {{ isSubmitting ? 'Saving...' : editingUser ? 'Save' : 'Create' }}
+                {{ isSubmitting ? t('users.saving', 'Saving...') : editingUser ? t('users.save', 'Save') : t('users.create', 'Create') }}
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Modal: просмотр прав пользователя -->
+    <Teleport to="body">
+      <div v-if="viewingUser" class="modal-overlay" @click.self="closeViewPermissions">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>{{ t('users.view_permissions_title', 'Права пользователя') }} — {{ viewingUser.login }}</h2>
+            <button class="close-btn" @click="closeViewPermissions">&times;</button>
+          </div>
+
+          <div class="modal-body">
+            <div v-if="viewedPermissionGroups.length === 0" class="section-empty">
+              {{ t('users.no_items', 'Нет доступных значений') }}
+            </div>
+            <div v-else class="permission-groups">
+              <div v-for="group in viewedPermissionGroups" :key="group.category" class="permission-group">
+                <button
+                  type="button"
+                  class="permission-group-title"
+                  @click="toggleViewedCategory(group.category)"
+                >
+                  <svg :class="{ rotate: !viewedExpanded.has(group.category) }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  <span>{{ t(`permissions.category.${group.category}`, group.category) }}</span>
+                  <span class="count">{{ group.items.length }}</span>
+                </button>
+                <div v-if="viewedExpanded.has(group.category)" class="view-perm-chips">
+                  <span v-for="perm in group.items" :key="perm" class="perm-chip">{{ perm }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -473,6 +756,49 @@ const filteredUsers = computed(() => {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+.meta-permissions {
+  align-items: center;
+}
+
+.view-perms-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.view-perms-btn:hover {
+  background: #5566d6;
+}
+
+.modal-body {
+  padding: 1.5rem 2rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.view-perm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.25rem 0 0.5rem 0.25rem;
+}
+
+.perm-chip {
+  background: #eef0f4;
+  border: 1px solid #dce0e6;
+  color: #444;
+  border-radius: 14px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 .card-actions {
   display: flex;
   justify-content: flex-end;
@@ -526,7 +852,7 @@ const filteredUsers = computed(() => {
   background: white;
   border-radius: 16px;
   width: 100%;
-  max-width: 500px;
+  max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -600,10 +926,133 @@ const filteredUsers = computed(() => {
   border-color: #dc3545;
 }
 
-.form-group input[readonly] {
+.form-group input[readonly],
+.login-readonly {
   background: #f0f0f0;
-  color: #666;
+  color: #555;
   cursor: not-allowed;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.form-group select {
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #ffffff;
+  color: #333;
+  color-scheme: light;
+  transition: border-color 0.2s;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.edit-section {
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background: #fafbfc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.section-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.section-empty {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.checkbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.permission-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.permission-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  margin-bottom: 0.15rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #667eea;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.permission-group-title:hover {
+  background: #f0f2ff;
+}
+
+.permission-group-title svg {
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.permission-group-title svg.rotate {
+  transform: rotate(-90deg);
+}
+
+.permission-group-title .count {
+  margin-left: auto;
+  background: #e5e9ff;
+  color: #667eea;
+  border-radius: 10px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.checkbox-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #444;
+  cursor: pointer;
+  background: white;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.checkbox-chip input {
+  accent-color: #667eea;
+  cursor: pointer;
+}
+
+.checkbox-chip.checked {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  color: #333;
 }
 
 .field-error {
