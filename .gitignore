@@ -3,6 +3,7 @@ dist
 .DS_Store
 .qwen
 /.env
+/research
 /AGENTS.md
 /.opencode/agent/architect.md
 /.opencode/agent/senior-frontend.md

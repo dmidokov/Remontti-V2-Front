@@ -95,7 +95,14 @@ export interface GetTranslationsRequest {
 export interface LoginResponse {
   success: boolean
   user?: UserAuth
+  /** Access token — держим в памяти вкладки. */
   token?: string
+  /** Секунд жизни access. */
+  expires_in?: number
+  /** Refresh token — держим в localStorage (общий для вкладок). */
+  refresh_token?: string
+  /** Секунд жизни refresh (остаток жизни сессии). */
+  refresh_expires_in?: number
   start_page?: string
   error?: string
 }

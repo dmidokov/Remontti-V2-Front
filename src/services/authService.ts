@@ -1,10 +1,9 @@
 import apiClient from '../api/client'
 import { mockApiClient } from '../api/mockApiClient'
 import { USE_MOCK } from '../config'
-import type { UserAuth, LoginRequest } from '../types/api'
+import type { UserAuth, LoginRequest, LoginResponse } from '../types/api'
 
 const STORAGE_KEY = 'auth_user'
-const TOKEN_KEY = 'auth_token'
 
 export async function login(loginValue: string, passwordValue: string): Promise<LoginResponse> {
   const request: LoginRequest = { login: loginValue, password: passwordValue }
@@ -15,7 +14,8 @@ export async function login(loginValue: string, passwordValue: string): Promise<
       : await apiClient.login(request)
 
     if (response.success) {
-      // Real API не возвращает объект user — собираем минимальный из доступных данных
+      // Real API не возвращает объект user — собираем минимальный из доступных данных.
+      // Токены (access в память, refresh в localStorage) раскладывает apiClient.login.
       const user: UserAuth = response.user ?? ({
         login: loginValue,
         startPage: response.start_page || '/dashboard',
@@ -33,29 +33,26 @@ export async function login(loginValue: string, passwordValue: string): Promise<
 }
 
 export function logout(): void {
-  clearSession()
-
-  if (USE_MOCK) {
-    return
+  if (!USE_MOCK) {
+    // Отзыв сессии на бэкенде + чистка локали + вывод остальных вкладок через канал.
+    void apiClient.logout().catch(console.error)
   }
-
-  apiClient.logout().catch(console.error)
+  clearSession()
 }
 
 export function clearSession(): void {
   localStorage.removeItem(STORAGE_KEY)
-  localStorage.removeItem(TOKEN_KEY)
+  apiClient.resetSession()
 }
 
-/** Проверяет срок жизни JWT по полю exp (без обращения к серверу). */
+/** Проверяет срок жизни access-токена текущей вкладки по полю exp (без обращения к серверу). */
 export function isTokenExpired(): boolean {
-  const token = getToken()
+  const token = apiClient.getAccessToken()
   if (!token) return false
   try {
     const payload = JSON.parse(atob(token.split('.')[1]))
-    if (typeof payload.exp !== 'number') return false
-    return payload.exp * 1000 < Date.now()
-  } catch (e) {
+    return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
+  } catch {
     return false
   }
 }
@@ -74,19 +71,22 @@ export function getCurrentUser(): UserAuth | null {
 
 export function isAuthenticated(): boolean {
   if (!getCurrentUser()) return false
-  // Mock-режим сессию по токену не хранит
+  // Mock-режим сессию по токенам не хранит.
   if (USE_MOCK) return true
-  return getToken() !== null
+  // Сессия есть, если есть access (в памяти вкладки) или refresh (в localStorage).
+  return apiClient.hasAccessToken() || apiClient.hasRefreshToken()
+}
+
+/**
+ * Гарантирует валидный access перед входом на защищённый роут:
+ * восстанавливает по refresh после F5/перезагрузки либо возвращает false.
+ */
+export async function ensureSession(): Promise<boolean> {
+  if (!getCurrentUser()) return false
+  if (USE_MOCK) return true
+  return apiClient.ensureAccessToken()
 }
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
-}
-
-export interface LoginResponse {
-  success: boolean
-  user?: UserAuth
-  token?: string
-  start_page?: string
-  error?: string
+  return apiClient.getAccessToken()
 }

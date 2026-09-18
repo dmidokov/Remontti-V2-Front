@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated, isTokenExpired, clearSession } from '../services/authService'
+import { isAuthenticated, ensureSession } from '../services/authService'
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
@@ -39,22 +39,20 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, from, next) => {
-  // Истёк срок жизни токена (JWT exp) — сбрасываем сессию сразу, без ожидания API
-  const tokenExpired = isTokenExpired()
-  if (tokenExpired) {
-    clearSession()
-  }
-
+router.beforeEach(async (to) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
-  if (requiresAuth && !isAuthenticated()) {
-    next(tokenExpired ? { path: '/', query: { session_expired: '1' } } : '/')
+  if (requiresAuth) {
+    // После F5 access в памяти вкладки исчезает — ensureSession восстановит его по refresh
+    // или подтвердит, что сессии больше нет.
+    if (!isAuthenticated() || !(await ensureSession())) {
+      return { path: '/', query: { session_expired: '1' } }
+    }
   } else if (to.name === 'Login' && isAuthenticated()) {
-    next('/dashboard')
-  } else {
-    next()
+    return '/dashboard'
   }
+
+  return true
 })
 
 export default router
