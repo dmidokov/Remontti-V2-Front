@@ -53,8 +53,8 @@ export async function seedManagementCards(): Promise<void> {
 
 export async function getManagementCards(userSettingsRight: number = 0): Promise<ManagementCard[]> {
   const allCards = await getAll<ManagementCard>('managementCards')
-  // Фильтруем: возвращаем только карточки, у которых requiredBit установлен в settings_right
-  return allCards.filter(card => {console.log(card); (userSettingsRight & card.requiredBit) !== 0})
+  // Возвращаем только карточки, чей requiredBit установлен в settings_right пользователя.
+  return allCards.filter(card => (userSettingsRight & card.requiredBit) !== 0)
 }
 
 export async function getAllManagementCards(): Promise<ManagementCard[]> {

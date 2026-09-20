@@ -13,6 +13,9 @@ import type {
   GetPermissionsResponse,
   CreateUserRequest,
   UpdateUserRequest,
+  CreateRoleRequest,
+  SetRolePermissionsRequest,
+  SuccessResponse,
   MenuItem,
   Branch,
   Tenant,
@@ -50,10 +53,49 @@ const MOCK_TENANTS: Tenant[] = [
 ]
 
 const MOCK_ROLES: Record<string, Role[]> = {
-  'control.remontti.site': [{ code: 'crm_admin', title_key: 'roles.crm_admin' }],
+  'control.remontti.site': [
+    {
+      code: 'crm_admin',
+      title_key: 'roles.crm_admin',
+      sort_order: 10,
+      permissions: [
+        'dashboard.view',
+        'orders.view',
+        'clients.view',
+        'users.view',
+        'users.create',
+        'users.create.cross_tenant',
+        'tenants.view',
+        'settings.view',
+      ],
+    },
+  ],
   'work.remontti.site': [
-    { code: 'admin', title_key: 'roles.admin' },
-    { code: 'manager', title_key: 'roles.manager' },
+    {
+      code: 'admin',
+      title_key: 'roles.admin',
+      sort_order: 10,
+      permissions: [
+        'dashboard.view',
+        'orders.view',
+        'clients.view',
+        'users.view',
+        'users.create',
+        'settings.view',
+      ],
+    },
+    {
+      code: 'manager',
+      title_key: 'roles.manager',
+      sort_order: 20,
+      permissions: [
+        'dashboard.view',
+        'orders.view',
+        'clients.view',
+        'objects.view',
+        'estimates.view',
+      ],
+    },
   ],
 }
 
@@ -72,8 +114,8 @@ const MOCK_PERMISSIONS: Permission[] = [
   { code: 'users.create', title_key: 'permissions.users.create' },
   { code: 'users.update', title_key: 'permissions.users.update' },
   { code: 'users.delete', title_key: 'permissions.users.delete' },
-  { code: 'users.create.cross_tenant', title_key: 'permissions.users.create.cross_tenant' },
-  { code: 'tenants.view', title_key: 'permissions.tenants.view' },
+  { code: 'users.create.cross_tenant', title_key: 'permissions.users.create.cross_tenant', system_only: true },
+  { code: 'tenants.view', title_key: 'permissions.tenants.view', system_only: true },
 ]
 
 const MOCK_TRANSLATIONS: Record<string, TranslationResponse> = {
@@ -168,6 +210,49 @@ const MOCK_TRANSLATIONS: Record<string, TranslationResponse> = {
     'users.error_failed_delete': 'Не удалось удалить пользователя',
     'users.error_failed_tenants': 'Не удалось загрузить список тенантов',
   },
+  roles: {
+    'roles.title': 'Роли и права',
+    'roles.subtitle': 'Управление ролями системы',
+    'roles.add': 'Добавить роль',
+    'roles.loading': 'Загрузка ролей...',
+    'roles.error_load': 'Не удалось загрузить роли',
+    'roles.error_permissions': 'Не удалось загрузить каталог прав (нужно право users.view)',
+    'roles.no_roles': 'Ролей пока нет',
+    'roles.field_code': 'Код',
+    'roles.field_sort': 'Порядок',
+    'roles.field_permissions': 'Права',
+    'roles.edit': 'Изменить',
+    'roles.delete': 'Удалить',
+    'roles.delete_confirm': 'Удалить роль',
+    'roles.copy': 'Скопировать',
+    'roles.add_title': 'Добавить роль',
+    'roles.edit_title': 'Права роли',
+    'roles.copy_title': 'Копировать роль',
+    'roles.name': 'Название роли',
+    'roles.name_placeholder': 'Например, «Менеджер по продажам»',
+    'roles.code_hint': 'Код формируется из названия, можно отредактировать',
+    'roles.sort_hint': 'Меньше — выше в списке',
+    'roles.create': 'Создать',
+    'roles.save': 'Сохранить',
+    'roles.saving': 'Сохранение...',
+    'roles.cancel': 'Отмена',
+    'roles.no_perms_title': 'Нет доступа к каталогу прав',
+    'roles.no_perms_desc': 'Каталог прав доступен при наличии права users.view',
+    'roles.toast_created': 'Роль создана',
+    'roles.toast_copied': 'Роль скопирована',
+    'roles.toast_updated': 'Права роли обновлены',
+    'roles.toast_deleted': 'Роль удалена',
+    'roles.error_required_name': 'Введите название роли',
+    'roles.error_code_invalid': 'Код: строчные латинские буквы, цифры и подчёркивания',
+    'roles.error_failed_save': 'Не удалось сохранить роль',
+    'roles.error_failed_delete': 'Не удалось удалить роль',
+    'roles.error_copy_permissions': 'Роль создана, но права скопировать не удалось',
+    'roles.system_only': 'системное',
+    'roles.perms_count': 'прав',
+    'roles.admin': 'Администратор',
+    'roles.manager': 'Менеджер',
+    'roles.crm_admin': 'Администратор CRM',
+  },
 }
 
 /** Эмуляция бэкенда на IndexedDB + localStorage. Методы повторяют интерфейс реального ApiClient. */
@@ -254,12 +339,52 @@ export class MockApiClient {
   async getRoles(domain?: string): Promise<GetRolesResponse> {
     await delay(300)
     const d = domain || `${getCurrentHost()}.remontti.site`
-    return { domain: d, items: MOCK_ROLES[d] || [] }
+    return { domain: d, items: [...(MOCK_ROLES[d] || [])] }
   }
 
   async getPermissions(_domain?: string): Promise<GetPermissionsResponse> {
     await delay(300)
     return { items: MOCK_PERMISSIONS }
+  }
+
+  async createRole(data: CreateRoleRequest): Promise<Role> {
+    await delay(500)
+    const d = `${getCurrentHost()}.remontti.site`
+    const roles = MOCK_ROLES[d] || (MOCK_ROLES[d] = [])
+    if (roles.some(r => r.code === data.code)) {
+      throw new Error('Роль с таким кодом уже существует')
+    }
+    const role: Role = {
+      code: data.code,
+      title_key: data.title_key,
+      sort_order: data.sort_order ?? 0,
+      permissions: [],
+    }
+    roles.push(role)
+    return { ...role }
+  }
+
+  async setRolePermissions(code: string, data: SetRolePermissionsRequest): Promise<Role> {
+    await delay(500)
+    const d = `${getCurrentHost()}.remontti.site`
+    const role = (MOCK_ROLES[d] || []).find(r => r.code === code)
+    if (!role) {
+      throw new Error('Роль не найдена')
+    }
+    role.permissions = [...data.permissions]
+    return { ...role }
+  }
+
+  async deleteRole(code: string): Promise<SuccessResponse> {
+    await delay(300)
+    const d = `${getCurrentHost()}.remontti.site`
+    const roles = MOCK_ROLES[d] || []
+    const i = roles.findIndex(r => r.code === code)
+    if (i === -1) {
+      throw new Error('Роль не найдена')
+    }
+    roles.splice(i, 1)
+    return { success: true }
   }
 
   async createUser(data: CreateUserRequest): Promise<ApiUser> {

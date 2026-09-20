@@ -51,6 +51,24 @@ export interface UpdateUserRequest {
 export interface Role {
   code: string
   title_key: string
+  sort_order?: number
+  /** Права роли (коды). */
+  permissions?: string[]
+}
+
+export interface CreateRoleRequest {
+  code: string
+  title_key: string
+  sort_order?: number
+}
+
+/** Набор прав роли; PUT заменяет его целиком, отсутствующее поле = пустой набор. */
+export interface SetRolePermissionsRequest {
+  permissions: string[]
+}
+
+export interface SuccessResponse {
+  success: boolean
 }
 
 export interface GetRolesResponse {
@@ -61,6 +79,8 @@ export interface GetRolesResponse {
 export interface Permission {
   code: string
   title_key: string
+  /** system_only-право можно выдать роли, лишь если вызывающий носит его сам. */
+  system_only?: boolean
 }
 
 export interface GetPermissionsResponse {

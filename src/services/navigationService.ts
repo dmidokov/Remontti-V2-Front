@@ -30,6 +30,14 @@ const INITIAL_MENU_ITEMS: MenuItem[] = [
     sort_order: 30,
   },
   {
+    code: 'roles',
+    parent_code: null,
+    title_key: 'menu.roles',
+    path: '/roles',
+    icon: 'shield',
+    sort_order: 35,
+  },
+  {
     code: 'management',
     parent_code: null,
     title_key: 'menu.management',

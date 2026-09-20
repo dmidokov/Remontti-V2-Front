@@ -1,5 +1,5 @@
 const DB_NAME = 'remontti-mock-db'
-const DB_VERSION = 3
+const DB_VERSION = 4
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

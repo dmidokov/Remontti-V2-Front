@@ -38,6 +38,7 @@ const formErrors = ref<Record<string, string>>({})
 onMounted(() => {
   loadTranslations('users')
   loadUsers()
+  void ensureTenants()
 })
 
 function hasPermission(perm: string): boolean {
@@ -89,6 +90,17 @@ async function loadTenants() {
   } catch (e) {
     showToast(t('users.error_failed_tenants', 'Failed to load tenants'), 'error')
     console.error(e)
+  }
+}
+
+/** Молча подтягивает реестр тенантов для отображения имён групп. Ошибки не критичны. */
+async function ensureTenants() {
+  if (tenants.value.length > 0) return
+  try {
+    const response = await getTenants()
+    tenants.value = response.items
+  } catch {
+    // Без имён в карточках останутся домены — на функциональность не влияет.
   }
 }
 
@@ -178,6 +190,22 @@ const viewedPermissionGroups = computed(() => {
 function closeModal() {
   showModal.value = false
   editingUser.value = null
+}
+
+/**
+ * Перевод названия роли/права. Реальный API отдаёт ключи БЕЗ префикса страницы
+ * (crm_admin, dashboard.view), mock — с полным префиксом (roles.crm_admin).
+ * Пробуем оба варианта.
+ */
+function resolveTranslation(fullKey: string, fallback: string): string {
+  const direct = t(fullKey)
+  if (direct) return direct
+  const i = fullKey.indexOf('.')
+  if (i !== -1) {
+    const suffixed = t(fullKey.slice(i + 1))
+    if (suffixed) return suffixed
+  }
+  return fallback
 }
 
 function transliterate(text: string): string {
@@ -299,6 +327,38 @@ const filteredUsers = computed(() => {
     user.roles.some(r => r.toLowerCase().includes(q)),
   )
 })
+
+const tenantByDomain = computed(() => {
+  const map = new Map<string, Tenant>()
+  for (const tenant of tenants.value) map.set(tenant.domain, tenant)
+  return map
+})
+
+const groupedByDomain = computed(() => {
+  const map = new Map<string, ApiUser[]>()
+  for (const user of filteredUsers.value) {
+    if (!map.has(user.domain)) map.set(user.domain, [])
+    map.get(user.domain)!.push(user)
+  }
+  return Array.from(map, ([domain, items]) => ({
+    domain,
+    tenantName: tenantByDomain.value.get(domain)?.name || null,
+    items: [...items].sort((a, b) => a.login.localeCompare(b.login)),
+  })).sort((a, b) => a.domain.localeCompare(b.domain))
+})
+
+// По умолчанию все группы свернуты.
+const collapsedGroups = ref<Set<string>>(new Set())
+
+function toggleGroup(domain: string) {
+  const next = new Set(collapsedGroups.value)
+  if (next.has(domain)) {
+    next.delete(domain)
+  } else {
+    next.add(domain)
+  }
+  collapsedGroups.value = next
+}
 </script>
 
 <template>
@@ -334,58 +394,78 @@ const filteredUsers = computed(() => {
           />
         </div>
 
-        <div class="users-cards">
-          <div v-for="user in filteredUsers" :key="user.id" class="user-card">
-            <div class="user-card-header">
-              <div class="user-avatar-large">{{ getInitials(user.login) }}</div>
-              <div class="user-card-name">
-                <h3>{{ user.login }}</h3>
-              </div>
-            </div>
-
-            <div class="user-card-meta">
-              <div>
-                <span><T k="users.field_domain" />:</span>
-                <span class="val">{{ user.domain }}</span>
-              </div>
-              <div>
-                <span><T k="users.field_created" />:</span>
-                <span class="val">{{ new Date(user.created_at).toLocaleDateString() }}</span>
-              </div>
-              <div>
-                <span><T k="users.field_roles" />:</span>
-                <span class="val">{{ user.roles.length ? user.roles.join(', ') : '—' }}</span>
-              </div>
-              <div class="meta-permissions">
-                <span><T k="users.field_permissions" />:</span>
-                <button
-                  v-if="user.direct_permissions.length"
-                  class="view-perms-btn"
-                  @click="openViewPermissions(user)"
-                >
-                  {{ t('users.view_permissions_btn', 'Показать') }} ({{ user.direct_permissions.length }})
-                </button>
-                <span v-else class="val">—</span>
-              </div>
-            </div>
-
-            <div class="card-actions">
+        <div class="users-groups">
+          <section v-for="group in groupedByDomain" :key="group.domain" class="users-group">
+            <header class="users-group-header">
               <button
-                v-if="hasPermission('users.update')"
-                class="action-btn edit-btn"
-                @click="openEditModal(user)"
+                type="button"
+                class="users-group-toggle"
+                :class="{ collapsed: collapsedGroups.has(group.domain) }"
+                @click="toggleGroup(group.domain)"
               >
-                <T k="users.edit" />
+                <svg :class="{ rotate: collapsedGroups.has(group.domain) }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+                <h2>{{ group.tenantName || group.domain }}</h2>
+                <span v-if="group.tenantName" class="users-group-domain">{{ group.domain }}</span>
+                <span class="users-group-count">{{ group.items.length }}</span>
               </button>
-              <button
-                v-if="hasPermission('users.delete')"
-                class="action-btn delete-btn"
-                @click="handleDelete(user)"
-              >
-                <T k="users.delete" />
-              </button>
+            </header>
+
+            <div v-if="collapsedGroups.has(group.domain)" class="users-cards">
+              <div v-for="user in group.items" :key="user.id" class="user-card">
+                <div class="user-card-header">
+                  <div class="user-avatar-large">{{ getInitials(user.login) }}</div>
+                  <div class="user-card-name">
+                    <h3>{{ user.login }}</h3>
+                  </div>
+                </div>
+
+                <div class="user-card-meta">
+                  <div>
+                    <span><T k="users.field_domain" />:</span>
+                    <span class="val">{{ user.domain }}</span>
+                  </div>
+                  <div>
+                    <span><T k="users.field_created" />:</span>
+                    <span class="val">{{ new Date(user.created_at).toLocaleDateString() }}</span>
+                  </div>
+                  <div>
+                    <span><T k="users.field_roles" />:</span>
+                    <span class="val">{{ user.roles.length ? user.roles.join(', ') : '—' }}</span>
+                  </div>
+                  <div class="meta-permissions">
+                    <span><T k="users.field_permissions" />:</span>
+                    <button
+                      v-if="user.direct_permissions.length"
+                      class="view-perms-btn"
+                      @click="openViewPermissions(user)"
+                    >
+                      {{ t('users.view_permissions_btn', 'Показать') }} ({{ user.direct_permissions.length }})
+                    </button>
+                    <span v-else class="val">—</span>
+                  </div>
+                </div>
+
+                <div class="card-actions">
+                  <button
+                    v-if="hasPermission('users.update')"
+                    class="action-btn edit-btn"
+                    @click="openEditModal(user)"
+                  >
+                    <T k="users.edit" />
+                  </button>
+                  <button
+                    v-if="hasPermission('users.delete')"
+                    class="action-btn delete-btn"
+                    @click="handleDelete(user)"
+                  >
+                    <T k="users.delete" />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
 
         <div v-if="filteredUsers.length === 0 && !isLoading" class="no-results">
@@ -456,7 +536,7 @@ const filteredUsers = computed(() => {
                       :checked="selectedRoles.includes(role.code)"
                       @change="toggleRole(role.code)"
                     />
-                    <span>{{ t(role.title_key, role.code) }}</span>
+                    <span>{{ resolveTranslation(role.title_key, role.code) }}</span>
                   </label>
                 </div>
               </div>
@@ -490,7 +570,7 @@ const filteredUsers = computed(() => {
                           :checked="selectedPermissions.includes(perm.code)"
                           @change="togglePermission(perm.code)"
                         />
-                        <span>{{ t(perm.title_key, perm.code) }}</span>
+                        <span>{{ resolveTranslation(perm.title_key, perm.code) }}</span>
                       </label>
                     </div>
                   </div>
@@ -666,6 +746,74 @@ const filteredUsers = computed(() => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
+}
+
+.users-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.users-group-header {
+  padding: 0;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 1rem;
+}
+
+.users-group-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.25rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.users-group-toggle:hover {
+  background: #f0f2ff;
+}
+
+.users-group-toggle svg {
+  flex-shrink: 0;
+  align-self: center;
+  color: #667eea;
+  transition: transform 0.2s;
+}
+
+.users-group-toggle svg.rotate {
+  transform: rotate(-90deg);
+}
+
+.users-group-toggle h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.users-group-domain {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  color: #666;
+  background: #f0f0f0;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.users-group-count {
+  margin-left: auto;
+  background: #e5e9ff;
+  color: #667eea;
+  border-radius: 10px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .no-results {

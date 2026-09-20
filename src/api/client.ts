@@ -15,6 +15,10 @@ import type {
   CreateUserRequest,
   UpdateUserRequest,
   ApiUser,
+  CreateRoleRequest,
+  SetRolePermissionsRequest,
+  Role,
+  SuccessResponse,
 } from '../types/api'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -473,6 +477,26 @@ class ApiClient {
   async getPermissions(domain?: string): Promise<GetPermissionsResponse> {
     const qs = domain ? `?domain=${encodeURIComponent(domain)}` : ''
     return this.request<GetPermissionsResponse>(`/v1/permissions${qs}`)
+  }
+
+  async createRole(data: CreateRoleRequest): Promise<Role> {
+    return this.request<Role>('/v1/roles', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async setRolePermissions(code: string, data: SetRolePermissionsRequest): Promise<Role> {
+    return this.request<Role>(`/v1/roles/${encodeURIComponent(code)}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteRole(code: string): Promise<SuccessResponse> {
+    return this.request<SuccessResponse>(`/v1/roles/${encodeURIComponent(code)}`, {
+      method: 'DELETE',
+    })
   }
 
   async createUser(data: CreateUserRequest): Promise<ApiUser> {

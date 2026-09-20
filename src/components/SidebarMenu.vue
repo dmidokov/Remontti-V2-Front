@@ -52,7 +52,20 @@ function toggleMenu() {
 }
 
 function iconSrc(icon: string): string {
+  // Защита от мусора в значении icon (null, пробелы, пути) — не показываем битую картинку.
+  if (!icon || !/^[a-z0-9-]+$/i.test(icon)) {
+    return '/icons/settings.svg'
+  }
   return `/icons/${icon}.svg`
+}
+
+function onIconError(event: Event) {
+  const img = event.target as HTMLImageElement
+  if (img.src.endsWith('/icons/settings.svg')) {
+    img.style.display = 'none'
+    return
+  }
+  img.src = '/icons/settings.svg'
 }
 
 function label(item: MenuItem): string {
@@ -104,7 +117,7 @@ function getInitials(name: string): string {
           @click="handleNavigate(item.path)"
         >
           <div class="nav-icon">
-            <img :src="iconSrc(item.icon)" :alt="label(item)" />
+            <img :src="iconSrc(item.icon)" :alt="label(item)" @error="onIconError" />
           </div>
           <span v-if="isExpanded" class="nav-label">{{ label(item) }}</span>
         </button>
