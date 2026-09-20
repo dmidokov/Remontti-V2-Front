@@ -43,13 +43,6 @@ const handleSubmit = async () => {
     return
   }
 
-  // const loginFormatRegex = /^[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/
-  // if (!loginFormatRegex.test(email.value)) {
-  //   loginError.value = true
-  //   showToast(t('login.error.invalid_format', 'Please enter a valid login (format: string.string)'), 'error')
-  //   return
-  // }
-
   isSubmitting.value = true
 
   const result = await login(email.value, password.value)

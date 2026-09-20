@@ -284,10 +284,13 @@ async function handleSubmit() {
       showToast(`${t('users.toast_updated', 'User updated')} "${editingUser.value.login}"`, 'success')
     } else {
       const login = generatedLogin.value
+      const splitName = formData.value.fullName.trim().split(/\s+/)
       await createUser({
         login,
         password: formData.value.password,
         domain: canSelectTenant.value && formData.value.tenant ? formData.value.tenant : undefined,
+        name: splitName.length > 0 ? splitName[0] : "unknown",
+        last_name: splitName.length > 1 ? splitName[1] : "unknown"
       })
       showToast(`${t('users.toast_created', 'User created')} "${login}"`, 'success')
     }

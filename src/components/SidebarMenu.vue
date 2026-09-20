@@ -72,13 +72,18 @@ function label(item: MenuItem): string {
   return item.title_key?.split('.').pop() || item.code
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map(word => word[0])
+function getInitials(user: UserAuth | null): string {
+  if (!user) return 'U'
+  const first = (user.name || '').trim()[0] || ''
+  const last = (user.last_name || '').trim()[0] || ''
+  if (first || last) return (first + last).toUpperCase().slice(0, 2)
+  // Фолбэк для мок-учёток, где имя — это "Имя Фамилия".
+  return (user.name || '')
+    .split(/\s+/)
+    .map(w => w[0] || '')
     .join('')
     .toUpperCase()
-    .slice(0, 2)
+    .slice(0, 2) || 'U'
 }
 </script>
 
@@ -90,7 +95,7 @@ function getInitials(name: string): string {
           <img :src="user.avatarUrl" :alt="user.name" />
         </template>
         <template v-else>
-          <span class="avatar-initials">{{ getInitials(user?.name || 'U') }}</span>
+          <span class="avatar-initials">{{ getInitials(user) }}</span>
         </template>
       </div>
       <div v-if="isExpanded" class="user-info">

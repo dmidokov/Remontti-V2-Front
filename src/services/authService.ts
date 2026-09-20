@@ -14,12 +14,14 @@ export async function login(loginValue: string, passwordValue: string): Promise<
       : await apiClient.login(request)
 
     if (response.success) {
-      // Real API не возвращает объект user — собираем минимальный из доступных данных.
+      // Real API не возвращает объект user — собираем из полей ответа (включая name/last_name).
       // Токены (access в память, refresh в localStorage) раскладывает apiClient.login.
-      const user: UserAuth = response.user ?? ({
+      const user: UserAuth = response.user ?? {
         login: loginValue,
+        name: response.name || loginValue,
+        last_name: response.last_name,
         startPage: response.start_page || '/dashboard',
-      } as UserAuth)
+      } as UserAuth
       localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
     }
 
