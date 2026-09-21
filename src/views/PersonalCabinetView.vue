@@ -16,13 +16,14 @@ const currentIconSrc = computed(() => resolveIconSrc(user.value?.icon_url))
 const hasCurrentIcon = computed(() => Boolean(user.value?.icon_url))
 
 interface Crop {
-  /** Центр рамки в долях (0..1) от размеров изображения. */
+  /** Центр рамки в пикселях исходного изображения. */
   cx: number
   cy: number
-  /** Сторона квадрата в долях (0..1). */
+  /** Сторона квадрата в пикселях исходного изображения. */
   size: number
 }
 
+const MIN_CROP_PX = 40
 const MAX_BYTES = 2 * 1024 * 1024
 const ACCEPT_MIME = ['image/png', 'image/jpeg', 'image/webp']
 
@@ -33,8 +34,9 @@ const sourceImage = ref<HTMLImageElement | null>(null)
 const isDeleting = ref(false)
 const isDragOver = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
+const maskId = `cropper-mask-${Math.random().toString(36).slice(2, 9)}`
 
-const crop = ref<Crop>({ cx: 0.5, cy: 0.5, size: 0.7 })
+const crop = ref<Crop>({ cx: 0, cy: 0, size: 0 })
 const containerRef = ref<HTMLDivElement | null>(null)
 const containerSize = ref({ w: 0, h: 0 })
 const interaction = ref<null | 'move' | 'resize'>(null)
@@ -114,9 +116,14 @@ function loadSource(file: File) {
 }
 
 function initialCropFor(img: HTMLImageElement): Crop {
-  const minSide = Math.min(img.naturalWidth, img.naturalHeight)
-  const size = minSide / Math.max(img.naturalWidth, img.naturalHeight)
-  return { cx: 0.5, cy: 0.5, size }
+  // Берём максимально возможный квадрат: сторона = min(naturalW, naturalH),
+  // центр — посередине картинки.
+  const size = Math.min(img.naturalWidth, img.naturalHeight)
+  return {
+    cx: img.naturalWidth / 2,
+    cy: img.naturalHeight / 2,
+    size,
+  }
 }
 
 // ===== Cropper geometry =====
@@ -141,29 +148,55 @@ onBeforeUnmount(() => {
 
 /** Сторона рамки в пикселях контейнера. */
 const cropPx = computed(() => {
+  if (containerSize.value.w === 0) return 0
+  return crop.value.size * fitScale.value
+})
+
+/** Коэффициент object-fit: contain для изображения в контейнере. */
+const fitScale = computed(() => {
   const img = sourceImage.value
-  if (!img || containerSize.value.w === 0) return 0
-  const scale = Math.min(containerSize.value.w / img.naturalWidth, containerSize.value.h / img.naturalHeight)
-  return img.naturalWidth * crop.value.size * scale
+  if (!img || containerSize.value.w === 0) return 1
+  return Math.min(
+    containerSize.value.w / img.naturalWidth,
+    containerSize.value.h / img.naturalHeight,
+  )
 })
 
 /** Координаты рамки в пикселях контейнера (для абсолютного позиционирования). */
 const cropBox = computed(() => {
   const img = sourceImage.value
   if (!img || containerSize.value.w === 0) {
-    return { left: 0, top: 0, size: 0 }
+    return { left: 0, top: 0, size: 0, centerX: 0, centerY: 0 }
   }
   const cw = containerSize.value.w
   const ch = containerSize.value.h
-  const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight)
+  const scale = fitScale.value
   const drawW = img.naturalWidth * scale
   const drawH = img.naturalHeight * scale
   const offsetX = (cw - drawW) / 2
   const offsetY = (ch - drawH) / 2
-  const sizePx = img.naturalWidth * crop.value.size * scale
-  const left = offsetX + img.naturalWidth * crop.value.cx * scale - sizePx / 2
-  const top = offsetY + img.naturalHeight * crop.value.cy * scale - sizePx / 2
-  return { left, top, size: sizePx }
+  const sizePx = cropPx.value
+  const centerX = offsetX + crop.value.cx * scale
+  const centerY = offsetY + crop.value.cy * scale
+  return {
+    left: centerX - sizePx / 2,
+    top: centerY - sizePx / 2,
+    size: sizePx,
+    centerX,
+    centerY,
+  }
+})
+
+/** Позиция верхнего-левого угла handle (24×24). Точка на круге на 45° от центра. */
+const HANDLE_SIZE = 24
+const handlePos = computed(() => {
+  if (cropBox.value.size === 0) return { left: 0, top: 0 }
+  const r = cropBox.value.size / 2
+  const dx = r * Math.SQRT1_2
+  return {
+    left: cropBox.value.centerX + dx - HANDLE_SIZE / 2,
+    top: cropBox.value.centerY + dx - HANDLE_SIZE / 2,
+  }
 })
 
 function onCropPointerDown(event: PointerEvent) {
@@ -180,26 +213,30 @@ function onCropPointerDown(event: PointerEvent) {
 function onPointerMove(event: PointerEvent) {
   if (!interaction.value || !dragStart.value || !containerRef.value || !sourceImage.value) return
   const rect = containerRef.value.getBoundingClientRect()
-  const scale = Math.min(rect.width / sourceImage.value.naturalWidth, rect.height / sourceImage.value.naturalHeight)
+  const scale = fitScale.value
   if (scale <= 0) return
-  const dxImg = (event.clientX - dragStart.value.mouseX) / scale / sourceImage.value.naturalWidth
-  const dyImg = (event.clientY - dragStart.value.mouseY) / scale / sourceImage.value.naturalHeight
+  // Смещение мыши → пиксели исходного изображения.
+  const dxImg = (event.clientX - dragStart.value.mouseX) / scale
+  const dyImg = (event.clientY - dragStart.value.mouseY) / scale
+  const img = sourceImage.value
+  const start = dragStart.value.crop
 
   if (interaction.value === 'move') {
     crop.value = {
-      ...dragStart.value.crop,
-      cx: clamp(dragStart.value.crop.cx + dxImg, dragStart.value.crop.size / 2, 1 - dragStart.value.crop.size / 2),
-      cy: clamp(dragStart.value.crop.cy + dyImg, dragStart.value.crop.size / 2, 1 - dragStart.value.crop.size / 2),
+      size: start.size,
+      cx: clamp(start.cx + dxImg, start.size / 2, img.naturalWidth - start.size / 2),
+      cy: clamp(start.cy + dyImg, start.size / 2, img.naturalHeight - start.size / 2),
     }
   } else if (interaction.value === 'resize') {
-    // Меняем размер за нижний-правый угол. Шаг — это drag в долях от min(naturalW, naturalH).
-    const minSide = Math.min(sourceImage.value.naturalWidth, sourceImage.value.naturalHeight)
-    const drag = Math.max(dxImg, dyImg) * sourceImage.value.naturalWidth / minSide
-    const nextSize = clamp(dragStart.value.crop.size + drag, 0.1, 1)
+    // Тянем за нижне-правый край круга — растём по диагонали.
+    // Math.max даёт симметричный resize: ведём вправо — растёт, вверх — уменьшается.
+    const drag = Math.max(dxImg, dyImg)
+    const maxSize = Math.min(img.naturalWidth, img.naturalHeight)
+    const nextSize = clamp(start.size + drag, MIN_CROP_PX, maxSize)
     crop.value = {
       size: nextSize,
-      cx: clamp(dragStart.value.crop.cx, nextSize / 2, 1 - nextSize / 2),
-      cy: clamp(dragStart.value.crop.cy, nextSize / 2, 1 - nextSize / 2),
+      cx: clamp(start.cx, nextSize / 2, img.naturalWidth - nextSize / 2),
+      cy: clamp(start.cy, nextSize / 2, img.naturalHeight - nextSize / 2),
     }
   }
 }
@@ -243,9 +280,8 @@ async function applyCrop() {
 function renderCroppedBlob(img: HTMLImageElement, c: Crop): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const outSize = 512
-    const srcSide = Math.min(img.naturalWidth, img.naturalHeight) * c.size
-    const sx = img.naturalWidth * c.cx - srcSide / 2
-    const sy = img.naturalHeight * c.cy - srcSide / 2
+    const sx = c.cx - c.size / 2
+    const sy = c.cy - c.size / 2
     const canvas = document.createElement('canvas')
     canvas.width = outSize
     canvas.height = outSize
@@ -255,7 +291,7 @@ function renderCroppedBlob(img: HTMLImageElement, c: Crop): Promise<Blob> {
       return
     }
     ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(img, sx, sy, srcSide, srcSide, 0, 0, outSize, outSize)
+    ctx.drawImage(img, sx, sy, c.size, c.size, 0, 0, outSize, outSize)
     canvas.toBlob(
       blob => {
         if (!blob) {
@@ -400,27 +436,32 @@ function getInitials(u: UserAuth | null): string {
               @load="updateContainerSize"
             />
 
-            <!-- Затемнение вне рамки — четыре тёмные области вокруг -->
-            <div class="cropper-mask top" :style="{ height: cropBox.top + 'px' }"></div>
-            <div class="cropper-mask bottom" :style="{
-              top: (cropBox.top + cropBox.size) + 'px',
-              height: Math.max(0, containerSize.h - cropBox.top - cropBox.size) + 'px'
-            }"></div>
-            <div class="cropper-mask left" :style="{
-              top: cropBox.top + 'px',
-              left: '0',
-              width: cropBox.left + 'px',
-              height: cropBox.size + 'px'
-            }"></div>
-            <div class="cropper-mask right" :style="{
-              top: cropBox.top + 'px',
-              left: (cropBox.left + cropBox.size) + 'px',
-              right: '0',
-              width: Math.max(0, containerSize.w - cropBox.left - cropBox.size) + 'px',
-              height: cropBox.size + 'px'
-            }"></div>
+            <!-- Затемнение вне круга — SVG с круглой дыркой через mask. -->
+            <svg
+              class="cropper-mask-svg"
+              :viewBox="`0 0 ${containerSize.w} ${containerSize.h}`"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <mask :id="maskId">
+                  <rect width="100%" height="100%" fill="white" />
+                  <circle
+                    :cx="cropBox.centerX"
+                    :cy="cropBox.centerY"
+                    :r="cropBox.size / 2"
+                    fill="black"
+                  />
+                </mask>
+              </defs>
+              <rect
+                width="100%"
+                height="100%"
+                fill="rgba(0, 0, 0, 0.6)"
+                :mask="`url(#${maskId})`"
+              />
+            </svg>
 
-            <!-- Рамка -->
+            <!-- Круглая рамка кропа -->
             <div
               class="cropper-frame"
               :class="{ 'is-active': interaction !== null }"
@@ -435,18 +476,21 @@ function getInitials(u: UserAuth | null): string {
               <div class="cropper-grid">
                 <span></span><span></span><span></span><span></span>
               </div>
-              <button
-                type="button"
-                class="cropper-handle"
-                data-handle="resize"
-                aria-label="Изменить размер"
-                @pointerdown.stop="onCropPointerDown"
-              >
-                <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M11 5 L5 11 M11 8 L8 11" />
-                </svg>
-              </button>
             </div>
+
+            <!-- Handle ресайза — снаружи frame, иначе его обрежет overflow:hidden у круга. -->
+            <button
+              type="button"
+              class="cropper-handle"
+              data-handle="resize"
+              aria-label="Изменить размер"
+              :style="{ left: handlePos.left + 'px', top: handlePos.top + 'px' }"
+              @pointerdown.stop="onCropPointerDown"
+            >
+              <svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 5 L5 11 M11 8 L8 11" />
+              </svg>
+            </button>
           </div>
 
           <footer class="cropper-footer">
@@ -742,31 +786,22 @@ function getInitials(u: UserAuth | null): string {
   user-select: none;
 }
 
-.cropper-mask {
+.cropper-mask-svg {
   position: absolute;
-  background: rgba(0, 0, 0, 0.55);
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  left: 0;
-  right: 0;
-}
-
-.cropper-mask.top,
-.cropper-mask.bottom {
-  left: 0;
-  right: 0;
-}
-
-.cropper-mask.left,
-.cropper-mask.right {
-  top: 0;
 }
 
 .cropper-frame {
   position: absolute;
+  border-radius: 50%;
   border: 2px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
   cursor: grab;
   touch-action: none;
+  overflow: hidden;
 }
 
 .cropper-frame.is-active {
@@ -791,8 +826,6 @@ function getInitials(u: UserAuth | null): string {
 
 .cropper-handle {
   position: absolute;
-  right: -10px;
-  bottom: -10px;
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -804,7 +837,7 @@ function getInitials(u: UserAuth | null): string {
   justify-content: center;
   cursor: nwse-resize;
   padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .cropper-handle:hover {
