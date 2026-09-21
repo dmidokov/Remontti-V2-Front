@@ -1,12 +1,11 @@
 const DB_NAME = 'remontti-mock-db'
-const DB_VERSION = 4
+const DB_VERSION = 5
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onupgradeneeded = (event) => {
-      console.log("hello")
       const db = (event.target as IDBOpenDBRequest).result
       if (!db.objectStoreNames.contains('users')) {
         db.createObjectStore('users', { keyPath: 'id', autoIncrement: true })
@@ -23,6 +22,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('managementCards')) {
         db.createObjectStore('managementCards', { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains('icons')) {
+        db.createObjectStore('icons', { keyPath: 'login' })
       }
     }
 

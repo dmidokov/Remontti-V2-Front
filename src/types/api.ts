@@ -8,7 +8,8 @@ export interface User {
   last_name?: string
   role: 'admin' | 'user' | 'manager' | 'employee'
   startPage?: string
-  avatarUrl?: string
+  /** Ссылка на иконку пользователя. Приходит на login и в списке пользователей. Пустая строка = иконки нет. */
+  icon_url?: string
   host?: string
   settings_right?: number
   roles?: string[]
@@ -28,6 +29,7 @@ export interface ApiUser {
     created_at: string
     roles: string[]
     direct_permissions: string[]
+    icon_url?: string
 }
 
 export interface GetUsersResponse {
@@ -132,7 +134,15 @@ export interface LoginResponse {
   name?: string
   /** Фамилия (real API). */
   last_name?: string
+  /** Ссылка на иконку авторизованного пользователя. Пустая строка = иконки нет. */
+  icon_url?: string
   error?: string
+}
+
+/** Ответ загрузки/получения иконки профиля (POST /v1/me/icon). */
+export interface IconResponse {
+    success: boolean
+    icon_url: string
 }
 
 export interface LogoutResponse {

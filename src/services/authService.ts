@@ -21,7 +21,13 @@ export async function login(loginValue: string, passwordValue: string): Promise<
         name: response.name || loginValue,
         last_name: response.last_name,
         startPage: response.start_page || '/dashboard',
+        icon_url: response.icon_url,
       } as UserAuth
+      // Дополнительно прокидываем icon_url в уже собранный user из response.user —
+      // mockApiClient отдаёт его на верхнем уровне LoginResponse, а реальный API — там же.
+      if (!user.icon_url && response.icon_url !== undefined) {
+        user.icon_url = response.icon_url
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
     }
 

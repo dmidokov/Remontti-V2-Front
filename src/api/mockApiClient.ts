@@ -1,5 +1,6 @@
 import { kvGet, kvSet, getAll, add, remove, update } from '../db'
 import { getCurrentHost } from '../utils/host'
+import { setIcon, deleteIcon, listIcons } from '../db/mockIconStore'
 import type {
   LoginRequest,
   LoginResponse,
@@ -24,6 +25,7 @@ import type {
   User,
   UserAuth,
   ApiUser,
+  IconResponse,
 } from '../types/api'
 
 function delay(ms: number): Promise<void> {
@@ -253,10 +255,31 @@ const MOCK_TRANSLATIONS: Record<string, TranslationResponse> = {
     'roles.manager': 'Менеджер',
     'roles.crm_admin': 'Администратор CRM',
   },
+  profile: {
+    'profile.title': 'Личный кабинет',
+    'profile.subtitle': 'Ваш профиль и настройки',
+    'profile.upload': 'Загрузить иконку',
+    'profile.delete': 'Удалить иконку',
+    'profile.deleting': 'Удаление...',
+    'profile.hint': 'PNG, JPEG или WebP, не больше 2 МиБ. После загрузки выберите область кадрирования — иконка отображается в кружке в левом верхнем углу.',
+    'profile.crop_title': 'Выберите область',
+    'profile.crop_hint': 'Тяните за рамку, чтобы переместить. За угол — чтобы изменить размер.',
+    'profile.apply': 'Применить',
+    'profile.cancel': 'Отмена',
+    'profile.uploading': 'Загрузка...',
+    'profile.confirm_delete': 'Удалить иконку?',
+    'profile.toast_uploaded': 'Иконка обновлена',
+    'profile.toast_deleted': 'Иконка удалена',
+    'profile.error_unsupported_type': 'Поддерживаются только PNG, JPEG и WebP',
+    'profile.error_too_large': 'Файл больше 2 МиБ',
+    'profile.error_read_failed': 'Не удалось прочитать изображение',
+    'profile.error_failed_upload': 'Не удалось сохранить иконку',
+    'profile.error_failed_delete': 'Не удалось удалить иконку',
+  },
 }
 
-/** Эмуляция бэкенда на IndexedDB + localStorage. Методы повторяют интерфейс реального ApiClient. */
-export class MockApiClient {
+  /** Эмуляция бэкенда на IndexedDB + localStorage. Методы повторяют интерфейс реального ApiClient. */
+  export class MockApiClient {
   async login(data: LoginRequest): Promise<LoginResponse> {
     await delay(500)
 
@@ -277,8 +300,10 @@ export class MockApiClient {
           }
         }
 
-        const userAuth: UserAuth = { ...user }
-        return { success: true, user: userAuth }
+        const iconMap = await listIcons()
+        const icon_url = iconMap.get(user.login) ?? ''
+        const userAuth: UserAuth = { ...user, icon_url }
+        return { success: true, user: userAuth, icon_url }
       }
     }
 
@@ -308,7 +333,7 @@ export class MockApiClient {
     return { domain: `${getCurrentHost()}.remontti.site`, items }
   }
 
-  private toApiUser(user: User & { id?: number }): ApiUser {
+  private toApiUser(user: User & { id?: number }, iconMap: Map<string, string>): ApiUser {
     return {
       id: user.id!,
       login: user.login,
@@ -319,14 +344,18 @@ export class MockApiClient {
       created_at: new Date().toISOString(),
       roles: user.roles ?? [user.role],
       direct_permissions: user.direct_permissions ?? [],
+      icon_url: iconMap.get(user.login) ?? '',
     }
   }
 
   async getUsers(): Promise<GetUsersResponse> {
     await delay(300)
-    const users = await getAll<User>('users')
+    const [users, iconMap] = await Promise.all([
+      getAll<User>('users'),
+      listIcons(),
+    ])
     return {
-      items: users.map(u => this.toApiUser(u)),
+      items: users.map(u => this.toApiUser(u, iconMap)),
       permissions: ['users.view', 'users.create', 'users.update', 'users.delete', 'users.create.cross_tenant', 'tenants.view'],
     }
   }
@@ -410,7 +439,8 @@ export class MockApiClient {
     const credentials = (await kvGet<Record<string, string>>('credentials')) || {}
     await kvSet('credentials', { ...credentials, [data.login]: data.password })
 
-    return this.toApiUser({ ...user, id })
+    const iconMap = await listIcons()
+    return this.toApiUser({ ...user, id }, iconMap)
   }
 
   async updateUser(id: number, data: UpdateUserRequest): Promise<{ success: boolean; roles: string[]; direct_permissions: string[] }> {
@@ -448,6 +478,28 @@ export class MockApiClient {
   async deleteUser(id: number): Promise<{ success: boolean }> {
     await delay(300)
     await remove('users', id)
+    return { success: true }
+  }
+
+  // ---------- Profile ----------
+
+  /** Сохранить blob как иконку пользователя и вернуть публичный icon_url. */
+  async uploadMyIcon(login: string, file: Blob): Promise<IconResponse> {
+    await delay(500)
+    if (!file || file.size === 0) {
+      throw { status: 400, code: 'ICON_REQUIRED', message: 'Файл иконки пуст' }
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      throw { status: 413, code: 'ICON_TOO_LARGE', message: 'Файл больше 2 МиБ' }
+    }
+    const icon_url = await setIcon(login, file)
+    return { success: true, icon_url }
+  }
+
+  /** Снять иконку пользователя. Идемпотентно: отсутствие — это 200, не 404. */
+  async deleteMyIcon(login: string): Promise<SuccessResponse> {
+    await delay(300)
+    await deleteIcon(login)
     return { success: true }
   }
 }

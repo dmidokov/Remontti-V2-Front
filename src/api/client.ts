@@ -19,6 +19,7 @@ import type {
   SetRolePermissionsRequest,
   Role,
   SuccessResponse,
+  IconResponse,
 } from '../types/api'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -362,14 +363,17 @@ class ApiClient {
     while (attempt <= 1) {
       const token = this.accessToken
 
-      const config: RequestInit = {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(options.headers || {}),
-        },
+      // Для multipart/form-data Content-Type НЕ ставим — браузер сам подставит
+      // правильный boundary. Если бы поставили application/json — сервер не
+      // разберёт тело и вернёт INVALID_MULTIPART.
+      const isMultipart = typeof FormData !== 'undefined' && options.body instanceof FormData
+      const headers: Record<string, string> = {
+        ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...((options.headers as Record<string, string>) || {}),
       }
+
+      const config: RequestInit = { ...options, headers }
 
       let response: Response
       try {
@@ -522,6 +526,25 @@ class ApiClient {
 
   async deleteUser(id: number): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/v1/users/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // ---------- Profile ----------
+
+  /** Загрузить свою иконку (multipart/form-data, поле `file`). */
+  async uploadMyIcon(file: Blob): Promise<IconResponse> {
+    const form = new FormData()
+    form.append('file', file)
+    return this.request<IconResponse>('/v1/me/icon', {
+      method: 'POST',
+      body: form,
+    })
+  }
+
+  /** Снять свою иконку. Идемпотентно: отсутствие иконки — это 200, не 404. */
+  async deleteMyIcon(): Promise<SuccessResponse> {
+    return this.request<SuccessResponse>('/v1/me/icon', {
       method: 'DELETE',
     })
   }

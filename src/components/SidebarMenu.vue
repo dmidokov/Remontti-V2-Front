@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCurrentUser, logout } from '../services/authService'
 import { getNavigation } from '../services/navigationService'
+import { resolveIconSrc } from '../services/profileService'
 import type { MenuItem } from '../types/api'
 import type { UserAuth } from '../types/api'
 
@@ -15,14 +16,29 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
-const user = getCurrentUser()
+const user = ref<UserAuth | null>(getCurrentUser())
 
 const isExpanded = ref(false)
 const navItems = ref<MenuItem[]>([])
 const isLoading = ref(false)
 
+const avatarSrc = computed(() => resolveIconSrc(user.value?.icon_url))
+
+const isOnProfile = computed(() => props.currentRoute === '/profile')
+
+function refreshUser() {
+  // При обновлении иконки profileService дёргает remontti:user-updated —
+  // подхватываем новое состояние, чтобы аватар в сайдбаре сменился без F5.
+  user.value = getCurrentUser()
+}
+
 onMounted(async () => {
   await loadNavigation()
+  window.addEventListener('remontti:user-updated', refreshUser)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('remontti:user-updated', refreshUser)
 })
 
 async function loadNavigation() {
@@ -40,6 +56,10 @@ async function loadNavigation() {
 function handleNavigate(route: string) {
   emit('navigate', route)
   router.push(route)
+}
+
+function openProfile() {
+  router.push('/profile')
 }
 
 function handleLogout() {
@@ -72,13 +92,13 @@ function label(item: MenuItem): string {
   return item.title_key?.split('.').pop() || item.code
 }
 
-function getInitials(user: UserAuth | null): string {
-  if (!user) return 'U'
-  const first = (user.name || '').trim()[0] || ''
-  const last = (user.last_name || '').trim()[0] || ''
+function getInitials(u: UserAuth | null): string {
+  if (!u) return 'U'
+  const first = (u.name || '').trim()[0] || ''
+  const last = (u.last_name || '').trim()[0] || ''
   if (first || last) return (first + last).toUpperCase().slice(0, 2)
   // Фолбэк для мок-учёток, где имя — это "Имя Фамилия".
-  return (user.name || '')
+  return (u.name || '')
     .split(/\s+/)
     .map(w => w[0] || '')
     .join('')
@@ -90,14 +110,22 @@ function getInitials(user: UserAuth | null): string {
 <template>
   <aside class="sidebar" :class="{ expanded: isExpanded }">
     <div class="sidebar-header">
-      <div class="user-avatar">
-        <template v-if="user?.avatarUrl">
-          <img :src="user.avatarUrl" :alt="user.name" />
-        </template>
-        <template v-else>
-          <span class="avatar-initials">{{ getInitials(user) }}</span>
-        </template>
-      </div>
+      <button
+        type="button"
+        class="user-avatar-button"
+        :class="{ active: isOnProfile }"
+        :title="user?.name || ''"
+        @click="openProfile"
+      >
+        <div class="user-avatar">
+          <template v-if="avatarSrc">
+            <img :src="avatarSrc" :alt="user?.name" />
+          </template>
+          <template v-else>
+            <span class="avatar-initials">{{ getInitials(user) }}</span>
+          </template>
+        </div>
+      </button>
       <div v-if="isExpanded" class="user-info">
         <span class="user-name">{{ user?.name }}</span>
         <span class="user-role">{{ user?.role }}</span>
@@ -189,6 +217,34 @@ function getInitials(user: UserAuth | null): string {
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
+}
+
+.user-avatar-button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.user-avatar-button:hover {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+  transform: scale(1.05);
+}
+
+.user-avatar-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #667eea;
+}
+
+.user-avatar-button.active {
+  box-shadow: 0 0 0 2px #667eea, 0 0 0 4px rgba(102, 126, 234, 0.25);
 }
 
 .user-avatar img {
