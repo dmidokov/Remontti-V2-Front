@@ -42,6 +42,14 @@ const INITIAL_CARDS: ManagementCard[] = [
     requiredBit: 0b10000, // bit 4
     link: '/backups',
   },
+  {
+    id: 6,
+    title: 'Переводы',
+    description: 'Редактирование словарей переводов интерфейса по страницам',
+    iconUrl: '/icons/management/translations.svg',
+    requiredBit: 0b100000, // bit 5
+    link: '/translations',
+  },
 ]
 
 export async function seedManagementCards(): Promise<void> {

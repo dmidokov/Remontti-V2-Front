@@ -26,10 +26,33 @@ import type {
   UserAuth,
   ApiUser,
   IconResponse,
+  TranslationPagesResponse,
+  TranslationPageItem,
+  SaveTranslationRequest,
+  TranslationItem,
 } from '../types/api'
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+const PAGE_PATTERN = /^[a-z][a-z0-9_]*$/
+const KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/
+
+function mockError(status: number, code: string, message: string): Error & { status: number; code: string } {
+  const err = new Error(message) as Error & { status: number; code: string }
+  err.status = status
+  err.code = code
+  return err
+}
+
+/** Считает число ключей на каждой странице. MOCK_TRANSLATIONS[page] уже словарь. */
+function countTranslationsByPage(): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [page, inner] of Object.entries(MOCK_TRANSLATIONS)) {
+    out[page] = Object.keys(inner).length
+  }
+  return out
 }
 
 const MOCK_BRANCHES: Branch[] = [
@@ -481,8 +504,44 @@ const MOCK_TRANSLATIONS: Record<string, TranslationResponse> = {
     return { success: true }
   }
 
-  // ---------- Profile ----------
+  // ---------- Translations: pages list / save / delete ----------
 
+  async getTranslationPages(): Promise<TranslationPagesResponse> {
+    await delay(300)
+    const counts = countTranslationsByPage()
+    const items: TranslationPageItem[] = Object.keys(counts)
+      .sort((a, b) => a.localeCompare(b))
+      .map(page => ({ page, keys_count: counts[page] }))
+    return { items }
+  }
+
+  async saveTranslation(page: string, key: string, data: SaveTranslationRequest): Promise<TranslationItem> {
+    await delay(300)
+    if (!page) throw mockError(400, 'PAGE_REQUIRED', 'page обязателен')
+    if (page === 'pages') throw mockError(400, 'PAGE_INVALID', 'pages — зарезервированное имя списка страниц')
+    if (!PAGE_PATTERN.test(page) || page.length > 64) throw mockError(400, 'PAGE_INVALID', 'Неверный формат page')
+    if (!key) throw mockError(400, 'KEY_REQUIRED', 'key обязателен')
+    if (!KEY_PATTERN.test(key) || key.length > 128) throw mockError(400, 'KEY_INVALID', 'Неверный формат key')
+    if (typeof data.value !== 'string' || data.value.trim() === '') {
+      throw mockError(400, 'VALUE_REQUIRED', 'value не может быть пустым')
+    }
+    if (!MOCK_TRANSLATIONS[page]) MOCK_TRANSLATIONS[page] = {}
+    MOCK_TRANSLATIONS[page][`${page}.${key}`] = data.value
+    return { page, key, value: data.value }
+  }
+
+  async deleteTranslation(page: string, key: string): Promise<SuccessResponse> {
+    await delay(300)
+    const inner = MOCK_TRANSLATIONS[page]
+    const fullKey = `${page}.${key}`
+    if (!inner || !(fullKey in inner)) {
+      throw mockError(404, 'TRANSLATION_NOT_FOUND', 'Такого перевода нет')
+    }
+    delete inner[fullKey]
+    return { success: true }
+  }
+
+  // ---------- Profile ----------
   /** Сохранить blob как иконку пользователя и вернуть публичный icon_url. */
   async uploadMyIcon(login: string, file: Blob): Promise<IconResponse> {
     await delay(500)

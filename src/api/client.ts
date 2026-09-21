@@ -20,6 +20,9 @@ import type {
   Role,
   SuccessResponse,
   IconResponse,
+  TranslationPagesResponse,
+  SaveTranslationRequest,
+  TranslationItem,
 } from '../types/api'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -455,6 +458,26 @@ class ApiClient {
 
   async getTranslations(page: string): Promise<GetTranslationsResponse> {
     return this.request<GetTranslationsResponse>(`/v1/translations/${page}`)
+  }
+
+  /** Список страниц переводов с числом заполненных ключей на языке пользователя. */
+  async getTranslationPages(): Promise<TranslationPagesResponse> {
+    return this.request<TranslationPagesResponse>('/v1/translations/pages')
+  }
+
+  /** Вставить/обновить перевод (PUT, не POST — ресурс задан клиентом целиком). */
+  async saveTranslation(page: string, key: string, data: SaveTranslationRequest): Promise<TranslationItem> {
+    return this.request<TranslationItem>(`/v1/translations/${page}/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  /** Удалить перевод (404 на отсутствующий — это не идемпотентный кейс). */
+  async deleteTranslation(page: string, key: string): Promise<SuccessResponse> {
+    return this.request<SuccessResponse>(`/v1/translations/${page}/${key}`, {
+      method: 'DELETE',
+    })
   }
 
   async getBranches(): Promise<GetBranchesResponse> {

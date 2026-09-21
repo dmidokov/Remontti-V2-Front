@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import SidebarMenu from '../components/SidebarMenu.vue'
 import { useTranslation } from '../composables/useTranslation'
 import { getUsers, createUser, updateUser, deleteUser, getTenants, getRoles, getPermissions, changeUserPassword } from '../services/userService'
+import { resolveIconSrc } from '../services/profileService'
 import { showToast } from '../composables/useToast'
 import type { ApiUser, Tenant, Role, Permission } from '../types/api'
 
@@ -317,8 +318,17 @@ async function handleDelete(user: ApiUser) {
   }
 }
 
-function getInitials(login: string): string {
-  return login.split('.')[0]?.toUpperCase().slice(0, 2) || login.slice(0, 2).toUpperCase()
+function getInitials(user: ApiUser): string {
+  // Реальный API отдаёт name/last_name. В моковых учётках поля пустые —
+  // берём инициалы из логина как фолбэк.
+  const first = (user.name || '').trim()[0] || ''
+  const last = (user.last_name || '').trim()[0] || ''
+  if (first || last) return (first + last).toUpperCase().slice(0, 2)
+  return user.login.split('.')[0]?.toUpperCase().slice(0, 2) || user.login.slice(0, 2).toUpperCase()
+}
+
+function iconSrcFor(user: ApiUser): string | null {
+  return resolveIconSrc(user.icon_url)
 }
 
 const filteredUsers = computed(() => {
@@ -418,7 +428,12 @@ function toggleGroup(domain: string) {
             <div v-if="collapsedGroups.has(group.domain)" class="users-cards">
               <div v-for="user in group.items" :key="user.id" class="user-card">
                 <div class="user-card-header">
-                  <div class="user-avatar-large">{{ getInitials(user.login) }}</div>
+                  <div class="user-avatar-large">
+                    <template v-if="iconSrcFor(user)">
+                      <img :src="iconSrcFor(user)!" :alt="user.login" />
+                    </template>
+                    <template v-else>{{ getInitials(user) }}</template>
+                  </div>
                   <div class="user-card-name">
                     <h3>{{ user.login }}</h3>
                   </div>
@@ -863,6 +878,13 @@ function toggleGroup(domain: string) {
   font-size: 1rem;
   font-weight: 600;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.user-avatar-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-card-name h3 {

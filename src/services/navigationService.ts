@@ -45,6 +45,14 @@ const INITIAL_MENU_ITEMS: MenuItem[] = [
     icon: 'management',
     sort_order: 40,
   },
+  {
+    code: 'translations',
+    parent_code: null,
+    title_key: 'menu.translations',
+    path: '/translations',
+    icon: 'translations',
+    sort_order: 50,
+  },
 ]
 
 export async function seedNavigation(): Promise<void> {

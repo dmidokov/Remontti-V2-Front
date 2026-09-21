@@ -5,5 +5,7 @@ export const ENDPOINTS = {
   },
   TRANSLATIONS: {
     GET: (page: string) => `/v1/translations/${page}`,
+    PAGES: '/v1/translations/pages',
+    ITEM: (page: string, key: string) => `/v1/translations/${page}/${key}`,
   },
 } as const

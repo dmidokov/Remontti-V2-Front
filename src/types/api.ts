@@ -30,6 +30,8 @@ export interface ApiUser {
     roles: string[]
     direct_permissions: string[]
     icon_url?: string
+    name?: string
+    last_name?: string
 }
 
 export interface GetUsersResponse {
@@ -158,6 +160,31 @@ export interface GetTranslationsResponse {
     page: string
     language: string
     items: Record<string, string>
+}
+
+/** Элемент списка страниц переводов (GET /v1/translations/pages). */
+export interface TranslationPageItem {
+    page: string
+    /** Сколько ключей этой страницы заполнено на языке пользователя. 0 — пробел, а не отсутствие страницы. */
+    keys_count: number
+}
+
+/** Ответ GET /v1/translations/pages. */
+export interface TranslationPagesResponse {
+    items: TranslationPageItem[]
+}
+
+/** Тело PUT /v1/translations/{page}/{key}. */
+export interface SaveTranslationRequest {
+    /** Текст перевода. Сохраняется как есть, без срезания пробелов по краям. */
+    value: string
+}
+
+/** Ответ PUT /v1/translations/{page}/{key}. Поля language нет — язык один и тот же у чтения и записи. */
+export interface TranslationItem {
+    page: string
+    key: string
+    value: string
 }
 
 // API Error types
