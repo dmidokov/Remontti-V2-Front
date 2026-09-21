@@ -6,6 +6,7 @@ import T from './components/T.vue'
 import { seedUsers } from './services/userService'
 import { seedNavigation } from './services/navigationService'
 import { seedManagementCards } from './services/managementCardService'
+import { seedBranches } from './services/branchService'
 import { initMockIconStore } from './db/mockIconStore'
 
 const app = createApp(App)
@@ -19,6 +20,7 @@ Promise.all([
   seedUsers(),
   seedNavigation(),
   seedManagementCards(),
+  seedBranches(),
   initMockIconStore(),
 ]).catch(console.error)
 

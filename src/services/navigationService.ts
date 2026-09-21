@@ -18,7 +18,7 @@ const INITIAL_MENU_ITEMS: MenuItem[] = [
     parent_code: null,
     title_key: 'menu.branches',
     path: '/branches',
-    icon: 'branches',
+    icon: 'map-pin',
     sort_order: 20,
   },
   {

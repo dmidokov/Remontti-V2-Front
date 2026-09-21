@@ -6,7 +6,12 @@ import type {
   LoginResponse,
   LogoutResponse,
   TranslationResponse,
-  GetBranchesResponse,
+  BranchesResponse,
+  BranchItem,
+  CreateBranchRequest,
+  UpdateBranchRequest,
+  SetUserBranchesRequest,
+  UserBranchesResponse,
   GetMenuResponse,
   GetUsersResponse,
   GetTenantsResponse,
@@ -18,7 +23,6 @@ import type {
   SetRolePermissionsRequest,
   SuccessResponse,
   MenuItem,
-  Branch,
   Tenant,
   Role,
   Permission,
@@ -46,6 +50,10 @@ function mockError(status: number, code: string, message: string): Error & { sta
   return err
 }
 
+function isPositiveId(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n > 0
+}
+
 /** Считает число ключей на каждой странице. MOCK_TRANSLATIONS[page] уже словарь. */
 function countTranslationsByPage(): Record<string, number> {
   const out: Record<string, number> = {}
@@ -55,20 +63,18 @@ function countTranslationsByPage(): Record<string, number> {
   return out
 }
 
-const MOCK_BRANCHES: Branch[] = [
+const MOCK_BRANCHES: BranchItem[] = [
   {
     id: 1,
-    name: 'Плаза',
-    code: 'plaza',
-    address: 'ТЦ Плаза, ул. Примерная 1',
-    isActive: true,
+    name: 'Точка на Ленина',
+    address: 'г. Казань, ул. Ленина, 12',
+    phone: '+7 843 000-00-00',
   },
   {
     id: 2,
-    name: 'Мастерская',
-    code: 'workshop',
-    address: 'ул. Рабочая 15',
-    isActive: true,
+    name: 'Мастерская на Рабочей',
+    address: 'г. Казань, ул. Рабочая, 15',
+    phone: '',
   },
 ]
 
@@ -141,7 +147,24 @@ const MOCK_PERMISSIONS: Permission[] = [
   { code: 'users.delete', title_key: 'permissions.users.delete' },
   { code: 'users.create.cross_tenant', title_key: 'permissions.users.create.cross_tenant', system_only: true },
   { code: 'tenants.view', title_key: 'permissions.tenants.view', system_only: true },
+  { code: 'branches.view', title_key: 'permissions.branches.view' },
+  { code: 'branches.create', title_key: 'permissions.branches.create' },
+  { code: 'branches.update', title_key: 'permissions.branches.update' },
+  { code: 'branches.delete', title_key: 'permissions.branches.delete' },
+  { code: 'branches.assign', title_key: 'permissions.branches.assign' },
 ]
+
+// Права branches.* в моке зависят от логина вызывающего.
+// branches.assign — отдельное право «доступ людей к точкам».
+const BRANCH_PERMS_BY_LOGIN: Record<string, string[]> = {
+  'remontti.admin': ['branches.view', 'branches.create', 'branches.update', 'branches.delete', 'branches.assign'],
+  'super.admin': ['branches.view', 'branches.create', 'branches.update', 'branches.delete', 'branches.assign'],
+  'test.employee': ['branches.view'],
+}
+
+function mockBranchPermissions(login: string): string[] {
+  return BRANCH_PERMS_BY_LOGIN[login] ?? []
+}
 
 const MOCK_TRANSLATIONS: Record<string, TranslationResponse> = {
   login: {
@@ -172,14 +195,40 @@ const MOCK_TRANSLATIONS: Record<string, TranslationResponse> = {
     'dashboard.in_progress': 'In Progress',
   },
   branches: {
-    'branches.title': 'Выберите филиал',
-    'branches.subtitle': 'Где вы будете работать сегодня?',
-    'branches.status.active': 'Активен',
-    'branches.status.inactive': 'Не активен',
-    'branches.continue': 'Продолжить',
-    'branches.submitting': 'Загрузка...',
-    'branches.error.load_failed': 'Не удалось загрузить список филиалов',
-    'branches.error.select_branch': 'Пожалуйста, выберите филиал',
+    'branches.title': 'Точки',
+    'branches.subtitle': 'Справочник точек тенанта: филиалы и отделения',
+    'branches.add': 'Создать точку',
+    'branches.loading': 'Загрузка точек...',
+    'branches.error_load': 'Не удалось загрузить список точек',
+    'branches.error_no_access': 'Нет доступа к разделу',
+    'branches.field_name': 'Название',
+    'branches.field_address': 'Адрес',
+    'branches.field_phone': 'Телефон',
+    'branches.phone_empty_hint': 'Пусто — если телефон не задан',
+    'branches.edit': 'Изменить',
+    'branches.delete': 'Удалить',
+    'branches.delete_confirm': 'Удалить точку',
+    'branches.empty': 'Точек пока нет',
+    'branches.add_title': 'Создать точку',
+    'branches.edit_title': 'Изменить точку',
+    'branches.name_placeholder': 'Например, Точка на Ленина',
+    'branches.address_placeholder': 'г. Казань, ул. Ленина, 12',
+    'branches.phone_placeholder': '+7 843 000-00-00',
+    'branches.name_required': 'Введите название',
+    'branches.address_required': 'Введите адрес',
+    'branches.name_too_long': 'Название должно быть не длиннее 128 символов',
+    'branches.address_too_long': 'Адрес должен быть не длиннее 255 символов',
+    'branches.phone_too_long': 'Телефон должен быть не длиннее 32 символов',
+    'branches.error_in_use': 'К точке подключены пользователи. Сначала снимите привязки.',
+    'branches.toast_created': 'Точка создана',
+    'branches.toast_updated': 'Точка изменена',
+    'branches.toast_deleted': 'Точка удалена',
+    'branches.error_save': 'Не удалось сохранить точку',
+    'branches.error_delete': 'Не удалось удалить точку',
+    'branches.cancel': 'Отмена',
+    'branches.create': 'Создать',
+    'branches.save': 'Сохранить',
+    'branches.saving': 'Сохранение...',
   },
   management: {
     'management.users': 'Работники',
@@ -345,9 +394,172 @@ const MOCK_TRANSLATIONS: Record<string, TranslationResponse> = {
     return MOCK_TRANSLATIONS[page] || {}
   }
 
-  async getBranches(): Promise<GetBranchesResponse> {
+  async getBranches(): Promise<BranchesResponse> {
     await delay(300)
-    return { success: true, branches: MOCK_BRANCHES }
+    const caller = this.getCallerLogin()
+    const permissions = mockBranchPermissions(caller)
+    const all = await getAll<BranchItem>('branches')
+    const items = all.length > 0 ? all : MOCK_BRANCHES
+    if (!permissions.includes('branches.view')) {
+      throw mockError(403, 'BRANCHES_FORBIDDEN', 'Нет права branches.view')
+    }
+    // Предикат видимости: носитель branches.assign видит все, иначе — только user_branches.
+    const visible = permissions.includes('branches.assign')
+      ? items
+      : await this.visibleBranchesForCaller(items, caller)
+    return { items: visible, permissions }
+  }
+
+  async createBranch(data: CreateBranchRequest): Promise<BranchItem> {
+    await delay(400)
+    const caller = this.getCallerLogin()
+    const permissions = mockBranchPermissions(caller)
+    if (!permissions.includes('branches.create')) {
+      throw mockError(403, 'BRANCHES_FORBIDDEN', 'Нет права branches.create')
+    }
+    const name = (data.name ?? '').trim()
+    const address = (data.address ?? '').trim()
+    const phone = (data.phone ?? '').trim()
+    if (!name) throw mockError(400, 'NAME_REQUIRED', 'Название обязательно')
+    if (name.length > 128) throw mockError(400, 'NAME_TOO_LONG', 'Название длиннее 128 символов')
+    if (!address) throw mockError(400, 'ADDRESS_REQUIRED', 'Адрес обязателен')
+    if (address.length > 255) throw mockError(400, 'ADDRESS_TOO_LONG', 'Адрес длиннее 255 символов')
+    if (phone.length > 32) throw mockError(400, 'PHONE_TOO_LONG', 'Телефон длиннее 32 символов')
+    const item: BranchItem = { id: 0, name, address, phone }
+    const id = await add<BranchItem>('branches', item)
+    return { ...item, id }
+  }
+
+  async updateBranch(id: number, data: UpdateBranchRequest): Promise<BranchItem> {
+    await delay(400)
+    if (!isPositiveId(id)) {
+      throw mockError(400, 'BRANCH_ID_INVALID', 'id точки не положительное число')
+    }
+    const caller = this.getCallerLogin()
+    const permissions = mockBranchPermissions(caller)
+    if (!permissions.includes('branches.update')) {
+      throw mockError(403, 'BRANCHES_FORBIDDEN', 'Нет права branches.update')
+    }
+    const all = await getAll<BranchItem>('branches')
+    const existing = all.find(b => b.id === id) ?? MOCK_BRANCHES.find(b => b.id === id)
+    if (!existing) throw mockError(404, 'BRANCH_NOT_FOUND', 'Точка не найдена')
+    const name = (data.name ?? '').trim()
+    const address = (data.address ?? '').trim()
+    const phone = (data.phone ?? '').trim()
+    if (!name) throw mockError(400, 'NAME_REQUIRED', 'Название обязательно')
+    if (name.length > 128) throw mockError(400, 'NAME_TOO_LONG', 'Название длиннее 128 символов')
+    if (!address) throw mockError(400, 'ADDRESS_REQUIRED', 'Адрес обязателен')
+    if (address.length > 255) throw mockError(400, 'ADDRESS_TOO_LONG', 'Адрес длиннее 255 символов')
+    if (phone.length > 32) throw mockError(400, 'PHONE_TOO_LONG', 'Телефон длиннее 32 символов')
+    const updated: BranchItem = { id, name, address, phone }
+    if (all.some(b => b.id === id)) {
+      await update<BranchItem>('branches', updated)
+    } else {
+      // Точка из MOCK_BRANCHES — мигрируем в IndexedDB.
+      await add<BranchItem>('branches', updated)
+    }
+    return updated
+  }
+
+  async deleteBranch(id: number): Promise<SuccessResponse> {
+    await delay(300)
+    if (!isPositiveId(id)) {
+      throw mockError(400, 'BRANCH_ID_INVALID', 'id точки не положительное число')
+    }
+    const caller = this.getCallerLogin()
+    const permissions = mockBranchPermissions(caller)
+    if (!permissions.includes('branches.delete')) {
+      throw mockError(403, 'BRANCHES_FORBIDDEN', 'Нет права branches.delete')
+    }
+    const all = await getAll<BranchItem>('branches')
+    const exists = all.some(b => b.id === id) || MOCK_BRANCHES.some(b => b.id === id)
+    if (!exists) throw mockError(404, 'BRANCH_NOT_FOUND', 'Точка не найдена')
+    // Сначала проверка «на неё ссылаются» — 409 BRANCH_IN_USE.
+    const refs = await this.userIdsWithBranch(id)
+    if (refs.length > 0) {
+      throw mockError(409, 'BRANCH_IN_USE', 'К точке подключены пользователи')
+    }
+    // Точка могла жить только в MOCK_BRANCHES — мигрируем в IDB перед удалением.
+    if (!all.some(b => b.id === id)) {
+      const stub = MOCK_BRANCHES.find(b => b.id === id)
+      if (stub) await add<BranchItem>('branches', stub)
+    }
+    await remove('branches', id)
+    return { success: true }
+  }
+
+  async setUserBranches(userId: number, data: SetUserBranchesRequest): Promise<UserBranchesResponse> {
+    await delay(300)
+    if (!isPositiveId(userId)) {
+      throw mockError(400, 'USER_ID_INVALID', 'id пользователя не положительное число')
+    }
+    const caller = this.getCallerLogin()
+    const permissions = mockBranchPermissions(caller)
+    if (!permissions.includes('branches.assign')) {
+      throw mockError(403, 'BRANCHES_FORBIDDEN', 'Нет права branches.assign')
+    }
+    const users = await getAll<User & { id: number }>('users')
+    const target = users.find(u => u.id === userId)
+    if (!target) throw mockError(404, 'USER_NOT_FOUND', 'Пользователь не найден')
+    const raw = Array.isArray(data.branches) ? data.branches : []
+    const unique = Array.from(new Set(raw))
+    const all = await getAll<BranchItem>('branches')
+    const validIds = new Set([
+      ...all.map(b => b.id),
+      ...MOCK_BRANCHES.map(b => b.id),
+    ])
+    for (const id of unique) {
+      if (!validIds.has(id)) {
+        throw mockError(400, 'BRANCH_NOT_FOUND', `Точка ${id} не из тенанта`)
+      }
+    }
+    const map = (await kvGet<Record<string, number[]>>('user_branches')) ?? {}
+    map[String(userId)] = unique
+    await kvSet('user_branches', map)
+    target.branch_ids = unique
+    await update<User & { id: number }>('users', target)
+    return { success: true, branches: unique }
+  }
+
+  private getCallerLogin(): string {
+    try {
+      const raw = localStorage.getItem('auth_user')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (typeof parsed?.login === 'string') return parsed.login
+      }
+    } catch {
+      // localStorage недоступен — caller = 'anonymous' → прав нет.
+    }
+    return 'anonymous'
+  }
+
+  private async visibleBranchesForCaller(all: BranchItem[], callerLogin: string): Promise<BranchItem[]> {
+    const map = (await kvGet<Record<string, number[]>>('user_branches')) ?? {}
+    const users = await getAll<User & { id: number }>('users')
+    const caller = users.find(u => u.login === callerLogin)
+    if (!caller || caller.id === undefined) return []
+    const ids = new Set(map[String(caller.id)] ?? caller.branch_ids ?? [])
+    if (ids.size === 0) return []
+    return all.filter(b => ids.has(b.id))
+  }
+
+  private async userIdsWithBranch(branchId: number): Promise<number[]> {
+    const map = (await kvGet<Record<string, number[]>>('user_branches')) ?? {}
+    const result: number[] = []
+    for (const [uid, ids] of Object.entries(map)) {
+      if (Array.isArray(ids) && ids.includes(branchId)) {
+        const n = Number(uid)
+        if (Number.isInteger(n)) result.push(n)
+      }
+    }
+    const users = await getAll<User & { id: number }>('users')
+    for (const u of users) {
+      if (u.id !== undefined && Array.isArray(u.branch_ids) && u.branch_ids.includes(branchId) && !result.includes(u.id)) {
+        result.push(u.id)
+      }
+    }
+    return result
   }
 
   async getNavigation(): Promise<GetMenuResponse> {

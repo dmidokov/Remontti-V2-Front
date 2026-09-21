@@ -1,5 +1,5 @@
 const DB_NAME = 'remontti-mock-db'
-const DB_VERSION = 5
+const DB_VERSION = 6
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -25,6 +25,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('icons')) {
         db.createObjectStore('icons', { keyPath: 'login' })
+      }
+      if (!db.objectStoreNames.contains('branches')) {
+        db.createObjectStore('branches', { keyPath: 'id' })
       }
     }
 

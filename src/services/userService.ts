@@ -1,6 +1,6 @@
 import apiClient from '../api/client'
 import { mockApiClient } from '../api/mockApiClient'
-import { kvSet, kvGet, seedStore } from '../db'
+import { kvSet, kvGet, seedStore, getAll } from '../db'
 import { USE_MOCK } from '../config'
 import type {
   ApiUser,
@@ -10,6 +10,8 @@ import type {
   GetPermissionsResponse,
   CreateUserRequest,
   UpdateUserRequest,
+  SetUserBranchesRequest,
+  UserBranchesResponse,
   User,
 } from '../types/api'
 
@@ -22,6 +24,7 @@ const INITIAL_USERS: User[] = [
     startPage: '/management',
     host: 'work',
     settings_right: 0b11111, // все биты
+    branch_ids: [1, 2],
   },
   {
     login: 'test.employee',
@@ -31,6 +34,7 @@ const INITIAL_USERS: User[] = [
     startPage: '/branches',
     host: 'work',
     settings_right: 0b00001, // только Users
+    branch_ids: [1],
   },
   {
     login: 'super.admin',
@@ -40,6 +44,7 @@ const INITIAL_USERS: User[] = [
     startPage: '/users',
     host: 'control',
     settings_right: 0b11111, // все биты
+    branch_ids: [1, 2],
   },
 ]
 
@@ -52,6 +57,23 @@ export async function seedUsers(): Promise<void> {
     'test.employee': 'password',
     'super.admin': 'password',
   })
+
+  // Seed привязок пользователей к точкам (user_branches) — add-only по логину.
+  const existingUsers = await getAll<User & { id?: number }>('users')
+  const byLogin = new Map(existingUsers.map(u => [u.login, u.id]))
+  const userBranches = (await kvGet<Record<string, number[]>>('user_branches')) ?? {}
+  let branchesChanged = false
+  for (const u of INITIAL_USERS) {
+    if (!u.branch_ids) continue
+    const id = byLogin.get(u.login)
+    if (typeof id !== 'number') continue
+    const key = String(id)
+    if (!(key in userBranches)) {
+      userBranches[key] = [...u.branch_ids]
+      branchesChanged = true
+    }
+  }
+  if (branchesChanged) await kvSet('user_branches', userBranches)
 
   // Seed новых пользователей — add-only по login
   await seedStore('users', INITIAL_USERS, 'login')
@@ -109,4 +131,13 @@ export async function deleteUser(id: number): Promise<void> {
     return
   }
   await apiClient.deleteUser(id)
+}
+
+export async function setUserBranches(
+  userId: number,
+  data: SetUserBranchesRequest,
+): Promise<UserBranchesResponse> {
+  return USE_MOCK
+    ? mockApiClient.setUserBranches(userId, data)
+    : apiClient.setUserBranches(userId, data)
 }

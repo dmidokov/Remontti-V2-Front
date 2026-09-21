@@ -1,12 +1,18 @@
 import { showToast } from '../composables/useToast'
 import { USE_MOCK } from '../config'
+import { ENDPOINTS } from './endpoints'
 import type {
   LoginRequest,
   LoginResponse,
   LogoutResponse,
   GetTranslationsResponse,
   ApiError,
-  GetBranchesResponse,
+  BranchesResponse,
+  BranchItem,
+  CreateBranchRequest,
+  UpdateBranchRequest,
+  SetUserBranchesRequest,
+  UserBranchesResponse,
   GetMenuResponse,
   GetUsersResponse,
   GetTenantsResponse,
@@ -480,8 +486,35 @@ class ApiClient {
     })
   }
 
-  async getBranches(): Promise<GetBranchesResponse> {
-    return this.request<GetBranchesResponse>('/v1/company/branches/get')
+  async getBranches(): Promise<BranchesResponse> {
+    return this.request<BranchesResponse>('/v1/branches')
+  }
+
+  async createBranch(data: CreateBranchRequest): Promise<BranchItem> {
+    return this.request<BranchItem>('/v1/branches', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateBranch(id: number, data: UpdateBranchRequest): Promise<BranchItem> {
+    return this.request<BranchItem>(ENDPOINTS.BRANCHES.ITEM(id), {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteBranch(id: number): Promise<SuccessResponse> {
+    return this.request<SuccessResponse>(ENDPOINTS.BRANCHES.ITEM(id), {
+      method: 'DELETE',
+    })
+  }
+
+  async setUserBranches(userId: number, data: SetUserBranchesRequest): Promise<UserBranchesResponse> {
+    return this.request<UserBranchesResponse>(ENDPOINTS.USERS.SET_BRANCHES(userId), {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
   }
 
   async getMenu(): Promise<GetMenuResponse> {

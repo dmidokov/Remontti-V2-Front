@@ -14,6 +14,8 @@ export interface User {
   settings_right?: number
   roles?: string[]
   direct_permissions?: string[]
+  /** id точек, к которым подключён пользователь (user_branches). Мок-режим. */
+  branch_ids?: number[]
 }
 
 export interface UserAuth extends User {
@@ -32,6 +34,8 @@ export interface ApiUser {
     icon_url?: string
     name?: string
     last_name?: string
+    /** id точек, к которым подключён пользователь (GET /v1/users). */
+    branches?: number[]
 }
 
 export interface GetUsersResponse {
@@ -204,18 +208,44 @@ export interface ValidationErrorResponse {
     errors: ValidationError[]
 }
 
-// Branch types
-export interface Branch {
+// Branch types (тенантский справочник точек)
+export interface BranchItem {
     id: number
     name: string
-    code: string
-    address?: string
-    isActive: boolean
+    address: string
+    /** Пустая строка, если телефон не задан. */
+    phone: string
 }
 
-export interface GetBranchesResponse {
+export interface BranchesResponse {
+    items: BranchItem[]
+    /** Права ВЫЗЫВАЮЩЕГО на экране точек (подмножество фиксированного списка). */
+    permissions: string[]
+}
+
+export interface CreateBranchRequest {
+    name: string
+    address: string
+    /** Необязателен; пустая строка = «телефона нет». */
+    phone?: string
+}
+
+export interface UpdateBranchRequest {
+    name: string
+    address: string
+    /** Необязателен; пустая строка стирает телефон. */
+    phone?: string
+}
+
+/** Тело PUT /v1/users/{id}/branches — полный набор точек пользователя. */
+export interface SetUserBranchesRequest {
+    /** Отсутствующее поле = пустой набор. */
+    branches?: number[]
+}
+
+export interface UserBranchesResponse {
     success: boolean
-    branches: Branch[]
+    branches: number[]
 }
 
 // Navigation types

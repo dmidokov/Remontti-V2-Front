@@ -39,7 +39,6 @@ const formErrors = ref<Record<string, string>>({})
 onMounted(() => {
   loadTranslations('users')
   loadUsers()
-  void ensureTenants()
 })
 
 function hasPermission(perm: string): boolean {
@@ -57,6 +56,10 @@ async function loadUsers() {
     const response = await getUsers()
     users.value = response.items
     permissions.value = response.permissions
+    // Реестр тенантов нужен только если вызывающий может выбирать тенант
+    // при создании (users.create.cross_tenant / tenants.view). Без этих прав —
+    // лишний запрос и шум в ошибках.
+    if (canSelectTenant.value) void ensureTenants()
   } catch (e) {
     error.value = t('users.error_load', 'Failed to load users')
     console.error(e)
